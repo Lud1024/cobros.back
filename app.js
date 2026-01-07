@@ -5,13 +5,32 @@ const app     = express();
 
 // Configurar CORS para permitir peticiones desde el frontend
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:3000',
+    'https://catchcode.es/cobros',
+    'https://catchcode.es/cobros_back'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
+
+// Ruta raíz con status 200
+app.get("/", (req, res) => {
+  res.status(200).send("API de Préstamos y Cobros - Sistema activo");
+});
+
+// Ruta de health check
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: "OK", 
+    message: "Servidor funcionando correctamente",
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Montar rutas de autenticación (públicas)
 app.use("/auth", require("./routes/auth.routes"));
@@ -36,8 +55,5 @@ app.use("/pago-aplicaciones", require("./routes/pago_aplicaciones.routes"));
 app.use("/politicas-mora", require("./routes/politicas_mora.routes"));
 app.use("/usuario-roles", require("./routes/usuario_roles.routes"));
 app.use("/rol-cartera", require("./routes/rol_cartera.routes"));
-// Sistema de cobros completo implementado! 🚀
-
-app.get("/", (req, res) => res.send("API de Préstamos y Cobros activa"));
 
 module.exports = app;
