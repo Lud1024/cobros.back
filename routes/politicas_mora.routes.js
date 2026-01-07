@@ -1,0 +1,27 @@
+// routes/politicas_mora.routes.js
+const express = require('express');
+const router = express.Router();
+const ctrl = require('../controllers/politicas_mora.controller');
+
+// Lista todas las políticas de mora
+router.get('/', ctrl.getAll);
+
+// Obtiene una política por ID
+router.get('/:id', ctrl.getById);
+
+// Obtiene políticas de una cartera específica
+router.get('/cartera/:id_cartera', ctrl.getByCartera);
+
+// Obtiene políticas vigentes (fecha actual dentro del rango)
+router.get('/vigentes', ctrl.getVigentes);
+
+// Crea una nueva política de mora
+router.post('/', ctrl.create);
+
+// Actualiza una política de mora existente
+router.patch('/:id', ctrl.update);
+
+// Elimina una política de mora
+router.delete('/:id', ctrl.remove);
+
+module.exports = router;
