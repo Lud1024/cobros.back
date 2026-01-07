@@ -1,0 +1,13 @@
+DirectoryIndex disabled
+
+RewriteEngine On
+
+# Redirigir todas las peticiones al proceso de Node.js
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ http://localhost:3000/$1 [P,L]
+
+# Configurar headers para API
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
