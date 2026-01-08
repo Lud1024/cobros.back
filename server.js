@@ -1,4 +1,6 @@
 // server.js
+require('dotenv').config(); // Cargar variables de entorno PRIMERO
+
 const app = require("./app");
 
 // Para cPanel con Phusion Passenger

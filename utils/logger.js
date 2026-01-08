@@ -21,10 +21,14 @@ function timeNow() {
 
 // Enviar log a Discord webhook
 async function sendToDiscord(level, message, data = null) {
-  if (!REMOTE_LOG_ENABLED || !DISCORD_WEBHOOK) return;
+  if (!REMOTE_LOG_ENABLED || !DISCORD_WEBHOOK) {
+    console.log('[LOGGER] Discord disabled:', { REMOTE_LOG_ENABLED, hasWebhook: !!DISCORD_WEBHOOK });
+    return;
+  }
   
-  // Solo enviar errores y warnings a Discord para no saturar
-  if (level !== 'error' && level !== 'warn') return;
+  // Enviar errores, warnings y logins a Discord
+  const isLoginEvent = typeof message === 'string' && message.toLowerCase().includes('login');
+  if (level !== 'error' && level !== 'warn' && !isLoginEvent) return;
   
   try {
     const emoji = level === 'error' ? '🔴' : level === 'warn' ? '🟡' : '🔵';
