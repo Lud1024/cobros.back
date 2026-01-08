@@ -9,7 +9,7 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:3000',
     'https://api-cobros.catchcode.es',
-    'https://cobros.catchcode.es',
+    'https://creditos.catchcode.es',
     /\.catchcode\.es$/
   ],
   credentials: true,
