@@ -137,13 +137,19 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
   try {
-    // Si se actualiza password, validar
+    // Construir SET dinámico solo con campos enviados
+    const allowedFields = ['usuario', 'nombre', 'apellido', 'correo', 'telefono', 'estado'];
+    const setFields = [];
+    const replacements = { id };
+
+    // Si se actualiza password, validar y hashear
     if (updates.password) {
       const passwordError = validatePassword(updates.password);
       if (passwordError) return res.status(400).json({ error: passwordError });
-      updates.password_hash = await argon2.hash(updates.password);
-      delete updates.password;
+      replacements.password_hash = await argon2.hash(updates.password);
+      setFields.push('password_hash = :password_hash');
     }
 
     // Verificar unicidad si se actualiza usuario
@@ -171,12 +177,26 @@ exports.update = async (req, res) => {
       }
     }
 
-    const replacements = { id, ...updates };
+    // Construir SET dinámico con campos permitidos
+    allowedFields.forEach(field => {
+      if (updates[field] !== undefined) {
+        setFields.push(`${field} = :${field}`);
+        replacements[field] = updates[field];
+      }
+    });
 
-    await sequelize.query(sql.updateUsuario, {
+    if (setFields.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const updateQuery = `UPDATE usuarios SET ${setFields.join(', ')} WHERE id_usuario = :id`;
+
+    await sequelize.query(updateQuery, {
       replacements,
       type: QueryTypes.UPDATE
     });
+    
+    logger.transaction('Usuario actualizado', { id_usuario: id, campos: Object.keys(replacements) });
     res.json({ message: 'Usuario actualizado' });
   } catch (err) {
     console.error(err);
