@@ -279,38 +279,48 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'USUARIO INACTIVO' });
     }
 
-    // Obtener roles del usuario con información completa
-    const rolesUsuario = await sequelize.query(`
-      SELECT 
-        ur.id_usuario,
-        ur.id_rol,
-        ur.id_cartera,
-        r.nombre_rol,
-        r.permisos,
-        c.nombre AS nombre_cartera
-      FROM usuario_roles ur
-      INNER JOIN roles r ON ur.id_rol = r.id_rol
-      INNER JOIN carteras c ON ur.id_cartera = c.id_cartera
-      WHERE ur.id_usuario = :id_usuario
-    `, {
-      replacements: { id_usuario: user.id_usuario },
-      type: QueryTypes.SELECT
-    });
+    // Obtener roles del usuario con información completa (carteras opcionales)
+    let rolesUsuario = [];
+    try {
+      rolesUsuario = await sequelize.query(`
+        SELECT 
+          ur.id_usuario,
+          ur.id_rol,
+          ur.id_cartera,
+          r.nombre_rol,
+          r.permisos,
+          COALESCE(c.nombre, 'Sin Cartera') AS nombre_cartera
+        FROM usuario_roles ur
+        INNER JOIN roles r ON ur.id_rol = r.id_rol
+        LEFT JOIN carteras c ON ur.id_cartera = c.id_cartera
+        WHERE ur.id_usuario = :id_usuario
+      `, {
+        replacements: { id_usuario: user.id_usuario },
+        type: QueryTypes.SELECT
+      });
+    } catch (roleErr) {
+      logger.error('Error fetching user roles', { error: roleErr.message, usuario: user.usuario });
+      // Continuar sin roles si hay error
+      rolesUsuario = [];
+    }
 
-    // Organizar los permisos por cartera
+    // Organizar los permisos por cartera (o globales si no hay cartera)
     const rolesPorCartera = {};
     const permisosUnificados = {};
     
     rolesUsuario.forEach(rol => {
+      // Usar 0 como key para roles sin cartera específica
+      const carteraKey = rol.id_cartera || 0;
+      
       // Agrupar roles por cartera
-      if (!rolesPorCartera[rol.id_cartera]) {
-        rolesPorCartera[rol.id_cartera] = {
+      if (!rolesPorCartera[carteraKey]) {
+        rolesPorCartera[carteraKey] = {
           id_cartera: rol.id_cartera,
-          nombre_cartera: rol.nombre_cartera,
+          nombre_cartera: rol.nombre_cartera || 'Global',
           roles: []
         };
       }
-      rolesPorCartera[rol.id_cartera].roles.push({
+      rolesPorCartera[carteraKey].roles.push({
         id_rol: rol.id_rol,
         nombre_rol: rol.nombre_rol,
         permisos: rol.permisos
@@ -318,14 +328,20 @@ exports.login = async (req, res) => {
 
       // Unificar permisos (si tiene true en algún rol, queda true)
       if (rol.permisos) {
-        const permisos = typeof rol.permisos === 'string' ? JSON.parse(rol.permisos) : rol.permisos;
-        Object.entries(permisos).forEach(([key, value]) => {
-          if (value === true) {
-            permisosUnificados[key] = true;
-          } else if (permisosUnificados[key] !== true) {
-            permisosUnificados[key] = value;
+        try {
+          const permisos = typeof rol.permisos === 'string' ? JSON.parse(rol.permisos) : rol.permisos;
+          if (permisos && typeof permisos === 'object') {
+            Object.entries(permisos).forEach(([key, value]) => {
+              if (value === true) {
+                permisosUnificados[key] = true;
+              } else if (permisosUnificados[key] !== true) {
+                permisosUnificados[key] = value;
+              }
+            });
           }
-        });
+        } catch (parseErr) {
+          logger.warn('Error parsing permissions', { rol: rol.nombre_rol, error: parseErr.message });
+        }
       }
     });
 
@@ -346,12 +362,13 @@ exports.login = async (req, res) => {
         roles: rolesUsuario,
         rolesPorCartera: Object.values(rolesPorCartera),
         permisos: permisosUnificados,
-        carteras: [...new Set(rolesUsuario.map(r => r.id_cartera))]
+        carteras: [...new Set(rolesUsuario.map(r => r.id_cartera).filter(id => id != null))]
       }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error en login' });
+    logger.error('Login error', { error: err.message, stack: err.stack });
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Error en login', details: err.message });
   }
 };
 
