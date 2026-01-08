@@ -279,11 +279,61 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'USUARIO INACTIVO' });
     }
 
-    // Generar token JWT
-    const token = generateToken(user);
+    // Obtener roles del usuario con información completa
+    const rolesUsuario = await sequelize.query(`
+      SELECT 
+        ur.id_usuario,
+        ur.id_rol,
+        ur.id_cartera,
+        r.nombre_rol,
+        r.permisos,
+        c.nombre AS nombre_cartera
+      FROM usuario_roles ur
+      INNER JOIN roles r ON ur.id_rol = r.id_rol
+      INNER JOIN carteras c ON ur.id_cartera = c.id_cartera
+      WHERE ur.id_usuario = :id_usuario
+    `, {
+      replacements: { id_usuario: user.id_usuario },
+      type: QueryTypes.SELECT
+    });
 
-  logger.info('Login succeeded', { usuario: usuario, ip: req.ip, id: user.id_usuario });
-  res.json({
+    // Organizar los permisos por cartera
+    const rolesPorCartera = {};
+    const permisosUnificados = {};
+    
+    rolesUsuario.forEach(rol => {
+      // Agrupar roles por cartera
+      if (!rolesPorCartera[rol.id_cartera]) {
+        rolesPorCartera[rol.id_cartera] = {
+          id_cartera: rol.id_cartera,
+          nombre_cartera: rol.nombre_cartera,
+          roles: []
+        };
+      }
+      rolesPorCartera[rol.id_cartera].roles.push({
+        id_rol: rol.id_rol,
+        nombre_rol: rol.nombre_rol,
+        permisos: rol.permisos
+      });
+
+      // Unificar permisos (si tiene true en algún rol, queda true)
+      if (rol.permisos) {
+        const permisos = typeof rol.permisos === 'string' ? JSON.parse(rol.permisos) : rol.permisos;
+        Object.entries(permisos).forEach(([key, value]) => {
+          if (value === true) {
+            permisosUnificados[key] = true;
+          } else if (permisosUnificados[key] !== true) {
+            permisosUnificados[key] = value;
+          }
+        });
+      }
+    });
+
+    // Generar token JWT con roles
+    const token = generateToken(user, rolesUsuario);
+
+    logger.info('Login succeeded', { usuario: usuario, ip: req.ip, id: user.id_usuario, roles: rolesUsuario.length });
+    res.json({
       message: 'Login exitoso',
       token,
       user: {
@@ -292,7 +342,11 @@ exports.login = async (req, res) => {
         nombre: user.nombre,
         apellido: user.apellido,
         correo: user.correo,
-        estado: user.estado
+        estado: user.estado,
+        roles: rolesUsuario,
+        rolesPorCartera: Object.values(rolesPorCartera),
+        permisos: permisosUnificados,
+        carteras: [...new Set(rolesUsuario.map(r => r.id_cartera))]
       }
     });
   } catch (err) {

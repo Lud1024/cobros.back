@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 // CONFIGURACIÓN: Cambiar entre producción y desarrollo
-const ES_PRODUCCION = true; // true = Producción | false = Local
+const ES_PRODUCCION = false; // true = Producción | false = Local
 
 const DB_NAME = ES_PRODUCCION ? process.env.DB_NAME  : process.env.DB_NAME2;
 const DB_USER = ES_PRODUCCION ? process.env.DB_USER  : process.env.DB_USER2;

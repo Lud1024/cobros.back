@@ -12,7 +12,11 @@ app.use(cors({
     'https://creditos.catchcode.es',
     'https://api-cobros.catchcode.es',
     'https://catchcode.es',
-    /\.catchcode\.es$/
+    /\.catchcode\.es$/,
+    // Permitir IPs de red local (192.168.x.x)
+    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+    /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+    /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
