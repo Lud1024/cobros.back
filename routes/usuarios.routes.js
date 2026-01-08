@@ -5,8 +5,8 @@ const ctrl = require('../controllers/usuarios.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/authorization');
 
-// Lista todos los usuarios (requiere autenticación y rol admin)
-router.get('/', authenticateToken, requireRole(['Administrador']), ctrl.getAll);
+// Lista todos los usuarios (requiere autenticación)
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene un usuario por ID (requiere autenticación)
 router.get('/:id', authenticateToken, ctrl.getById);
