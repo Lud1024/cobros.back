@@ -22,17 +22,17 @@ function timeNow() {
 // Enviar log a Discord webhook
 async function sendToDiscord(level, message, data = null) {
   if (!REMOTE_LOG_ENABLED || !DISCORD_WEBHOOK) {
-    console.log('[LOGGER] Discord disabled:', { REMOTE_LOG_ENABLED, hasWebhook: !!DISCORD_WEBHOOK });
     return;
   }
   
-  // Enviar errores, warnings y logins a Discord
-  const isLoginEvent = typeof message === 'string' && message.toLowerCase().includes('login');
-  if (level !== 'error' && level !== 'warn' && !isLoginEvent) return;
+  // Enviar TODOS los logs a Discord
   
   try {
-    const emoji = level === 'error' ? '🔴' : level === 'warn' ? '🟡' : '🔵';
-    const color = level === 'error' ? 0xFF0000 : level === 'warn' ? 0xFFFF00 : 0x0099FF;
+    const emojis = { error: '🔴', warn: '🟡', info: '🔵', debug: '⚪', transaction: '💰' };
+    const colors = { error: 0xFF0000, warn: 0xFFFF00, info: 0x0099FF, debug: 0x808080, transaction: 0x00FF00 };
+    
+    const emoji = emojis[level] || '📝';
+    const color = colors[level] || 0x0099FF;
     
     const embed = {
       title: `${emoji} [${level.toUpperCase()}] Cobros API`,
@@ -94,9 +94,15 @@ module.exports = {
     }
   },
   debug: (...args) => {
-    if (shouldLog('debug')) console.debug('[DEBUG]', timeNow(), ...args);
+    if (shouldLog('debug')) {
+      console.debug('[DEBUG]', timeNow(), ...args);
+      sendToDiscord('debug', args[0], args[1]);
+    }
   },
   transaction: (...args) => {
-    if (shouldLog('info')) console.log('[TRANSACTION]', timeNow(), ...args);
+    if (shouldLog('info')) {
+      console.log('[TRANSACTION]', timeNow(), ...args);
+      sendToDiscord('transaction', args[0], args[1]);
+    }
   },
 };
