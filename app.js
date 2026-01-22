@@ -5,23 +5,51 @@ const app = express();
 
 // Configurar CORS para permitir peticiones desde el frontend
 app.use(cors({
-  origin: [
-    'http://localhost:5173', 
-    'http://localhost:3000',
-    'http://creditos.catchcode.es',
-    'https://creditos.catchcode.es',
-    'https://api-cobros.catchcode.es',
-    'https://catchcode.es',
-    /\.catchcode\.es$/,
-    // Permitir IPs de red local (192.168.x.x)
-    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-    /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-    /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/
-  ],
+  origin: function(origin, callback) {
+    // Permitir requests sin origin (como mobile apps o curl)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173', 
+      'http://localhost:3000',
+      'http://creditos.catchcode.es',
+      'https://creditos.catchcode.es',
+      'https://api-cobros.catchcode.es',
+      'https://catchcode.es',
+      'http://catchcode.es'
+    ];
+    
+    // Verificar si está en la lista de orígenes permitidos
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Verificar patrones regex
+    const patterns = [
+      /^https?:\/\/.*\.catchcode\.es$/,
+      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+      /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+      /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/
+    ];
+    
+    for (const pattern of patterns) {
+      if (pattern.test(origin)) {
+        return callback(null, true);
+      }
+    }
+    
+    // Si no coincide, rechazar
+    console.warn('CORS blocked origin:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
+
+// Manejar preflight requests explícitamente
+app.options('*', cors());
 
 app.use(express.json());
 
