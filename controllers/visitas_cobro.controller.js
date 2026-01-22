@@ -108,11 +108,11 @@ exports.create = async (req, res) => {
 
     await sequelize.query(sql.createVisitaCobro, {
       replacements: {
-        id_cliente,
-        id_prestamo,
-        resultado,
-        mensaje_dejado,
-        total_cobros_info: total_cobros_info || 0
+        id_cliente: id_cliente ?? null,
+        id_prestamo: id_prestamo ?? null,
+        resultado: resultado ?? null,
+        mensaje_dejado: mensaje_dejado ?? null,
+        total_cobros_info: total_cobros_info ?? 0
       },
       type: QueryTypes.INSERT,
       transaction
@@ -150,7 +150,14 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'total_cobros_info no puede ser negativo' });
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cliente: updates.id_cliente ?? null,
+      id_prestamo: updates.id_prestamo ?? null,
+      resultado: updates.resultado ?? null,
+      mensaje_dejado: updates.mensaje_dejado ?? null,
+      total_cobros_info: updates.total_cobros_info ?? null
+    };
 
     await sequelize.query(sql.updateVisitaCobro, {
       replacements,

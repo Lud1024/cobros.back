@@ -70,7 +70,16 @@ exports.create = async (req, res) => {
     }
 
     const [result] = await sequelize.query(sql.createCliente, {
-      replacements: { id_cartera, nombre, apellido, dpi, nit, direccion, telefono, correo },
+      replacements: {
+        id_cartera: id_cartera ?? null,
+        nombre: nombre ?? null,
+        apellido: apellido ?? null,
+        dpi: dpi ?? null,
+        nit: nit ?? null,
+        direccion: direccion ?? null,
+        telefono: telefono ?? null,
+        correo: correo ?? null
+      },
       type: QueryTypes.INSERT,
       transaction
     });

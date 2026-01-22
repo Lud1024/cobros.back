@@ -77,7 +77,11 @@ exports.create = async (req, res) => {
     }
 
     await sequelize.query(sql.createPrestamoGarantia, {
-      replacements: { id_prestamo, id_metodo, valor_garantia },
+      replacements: {
+        id_prestamo: id_prestamo ?? null,
+        id_metodo: id_metodo ?? null,
+        valor_garantia: valor_garantia ?? null
+      },
       type: QueryTypes.INSERT,
       transaction
     });
@@ -107,7 +111,11 @@ exports.update = async (req, res) => {
     }
 
     await sequelize.query(sql.updatePrestamoGarantia, {
-      replacements: { id_prestamo, id_metodo, valor_garantia },
+      replacements: {
+        id_prestamo: id_prestamo ?? null,
+        id_metodo: id_metodo ?? null,
+        valor_garantia: valor_garantia ?? null
+      },
       type: QueryTypes.UPDATE
     });
     res.json({ message: 'Relación préstamo-garantía actualizada' });

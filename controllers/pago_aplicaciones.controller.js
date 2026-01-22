@@ -102,10 +102,10 @@ exports.create = async (req, res) => {
 
     await sequelize.query(sql.createPagoAplicacion, {
       replacements: {
-        id_pago,
-        id_cuota,
-        aplicado_a,
-        monto_aplicado
+        id_pago: id_pago ?? null,
+        id_cuota: id_cuota ?? null,
+        aplicado_a: aplicado_a ?? null,
+        monto_aplicado: monto_aplicado ?? null
       },
       type: QueryTypes.INSERT,
       transaction
@@ -136,7 +136,12 @@ exports.update = async (req, res) => {
     }
 
     await sequelize.query(sql.updatePagoAplicacion, {
-      replacements: { id_pago, id_cuota, aplicado_a, monto_aplicado },
+      replacements: {
+        id_pago: id_pago ?? null,
+        id_cuota: id_cuota ?? null,
+        aplicado_a: aplicado_a ?? null,
+        monto_aplicado: monto_aplicado ?? null
+      },
       type: QueryTypes.UPDATE
     });
     res.json({ message: 'Aplicación de pago actualizada' });

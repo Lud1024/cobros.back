@@ -101,7 +101,11 @@ exports.update = async (req, res) => {
       updates.motivo = updates.motivo.trim();
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_verificacion: updates.id_verificacion ?? null,
+      motivo: updates.motivo ?? null
+    };
 
     await sequelize.query(sql.updateRechazoHistorial, {
       replacements,

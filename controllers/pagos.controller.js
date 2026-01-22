@@ -54,15 +54,18 @@ exports.getByPrestamo = async (req, res) => {
 
 /**
  * POST /pagos
+ * Acepta tanto monto_recibido (nombre BD) como monto (nombre frontend)
  */
 exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { id_prestamo, fecha_pago, monto_recibido, metodo_pago, observaciones } = req.body;
+    const { id_prestamo, fecha_pago, metodo_pago, observaciones } = req.body;
+    // Mapear monto del frontend a monto_recibido de la BD
+    const monto_recibido = req.body.monto_recibido ?? req.body.monto;
     const origen = req.user ? `${req.user.nombre} ${req.user.apellido}` : 'Sistema';
 
     // Validar monto positivo
-    if (monto_recibido <= 0) {
+    if (!monto_recibido || monto_recibido <= 0) {
       await transaction.rollback();
       return res.status(400).json({ error: 'monto_recibido debe ser mayor a 0' });
     }
@@ -77,32 +80,16 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'fecha_pago no puede ser mayor a 7 días en el futuro' });
     }
 
-    // Validar metodo_pago
-    if (metodo_pago && metodo_pago !== 'EFECTIVO') {
-      await transaction.rollback();
-      return res.status(400).json({ error: 'metodo_pago debe ser EFECTIVO' });
-    }
-
     const [result] = await sequelize.query(sql.createPago, {
       replacements: {
-        id_prestamo,
-        fecha_pago,
-        monto_recibido,
-        metodo_pago: metodo_pago || 'EFECTIVO',
-        origen,
-        observaciones
+        id_prestamo: id_prestamo ?? null,
+        fecha_pago: fecha_pago ?? null,
+        monto_recibido: monto_recibido ?? null,
+        metodo_pago: metodo_pago || 'Efectivo',
+        origen: origen ?? null,
+        observaciones: observaciones ?? null
       },
       type: QueryTypes.INSERT,
-      transaction
-    });
-
-    // Actualizar numero_recibo con el id_pago generado
-    await sequelize.query(sql.updateNumeroRecibo, {
-      replacements: {
-        id: result,
-        numero_recibo: result.toString()
-      },
-      type: QueryTypes.UPDATE,
       transaction
     });
 
@@ -121,14 +108,19 @@ exports.create = async (req, res) => {
 
 /**
  * PATCH /pagos/:id
+ * Acepta tanto monto_recibido (nombre BD) como monto (nombre frontend)
  */
 exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   const origen = req.user ? `${req.user.nombre} ${req.user.apellido}` : 'Sistema';
+  
+  // Mapear monto del frontend a monto_recibido de la BD
+  const monto_recibido = updates.monto_recibido ?? updates.monto ?? null;
+  
   try {
     // Validar monto si se actualiza
-    if (updates.monto_recibido && updates.monto_recibido <= 0) {
+    if (monto_recibido && monto_recibido <= 0) {
       return res.status(400).json({ error: 'monto_recibido debe ser mayor a 0' });
     }
 
@@ -143,12 +135,15 @@ exports.update = async (req, res) => {
       }
     }
 
-    // Validar metodo_pago si se actualiza
-    if (updates.metodo_pago && updates.metodo_pago !== 'EFECTIVO') {
-      return res.status(400).json({ error: 'metodo_pago debe ser EFECTIVO' });
-    }
-
-    const replacements = { id, ...updates, origen };
+    const replacements = {
+      id,
+      id_prestamo: updates.id_prestamo ?? null,
+      fecha_pago: updates.fecha_pago ?? null,
+      monto_recibido: monto_recibido,
+      metodo_pago: updates.metodo_pago ?? null,
+      origen: origen ?? null,
+      observaciones: updates.observaciones ?? null
+    };
 
     await sequelize.query(sql.updatePago, {
       replacements,

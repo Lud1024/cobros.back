@@ -149,7 +149,13 @@ exports.update = async (req, res) => {
       updates.ruta_storage = updates.ruta_storage.trim();
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cliente: updates.id_cliente ?? null,
+      tipo_documento: updates.tipo_documento ?? null,
+      nombre_archivo: updates.nombre_archivo ?? null,
+      ruta_storage: updates.ruta_storage ?? null
+    };
 
     await sequelize.query(sql.updateClienteDocumento, {
       replacements,

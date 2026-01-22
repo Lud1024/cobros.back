@@ -36,10 +36,10 @@ VALUES (
 -- name: updateMoraEvento
 UPDATE mora_eventos
 SET
-  id_cuota      = :id_cuota,
-  fecha_calculo = :fecha_calculo,
-  dias_atraso   = :dias_atraso,
-  interes_mora  = :interes_mora
+  id_cuota      = COALESCE(:id_cuota, id_cuota),
+  fecha_calculo = COALESCE(:fecha_calculo, fecha_calculo),
+  dias_atraso   = COALESCE(:dias_atraso, dias_atraso),
+  interes_mora  = COALESCE(:interes_mora, interes_mora)
 WHERE id_mora = :id;
 
 -- name: deleteMoraEvento

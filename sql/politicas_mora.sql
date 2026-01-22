@@ -39,11 +39,11 @@ VALUES (
 -- name: updatePoliticaMora
 UPDATE politicas_mora
 SET
-  id_cartera       = :id_cartera,
-  tasa_mora_diaria = :tasa_mora_diaria,
-  tope_mora        = :tope_mora,
-  vigente_desde    = :vigente_desde,
-  vigente_hasta    = :vigente_hasta
+  id_cartera       = COALESCE(:id_cartera, id_cartera),
+  tasa_mora_diaria = COALESCE(:tasa_mora_diaria, tasa_mora_diaria),
+  tope_mora        = COALESCE(:tope_mora, tope_mora),
+  vigente_desde    = COALESCE(:vigente_desde, vigente_desde),
+  vigente_hasta    = COALESCE(:vigente_hasta, vigente_hasta)
 WHERE id_politica = :id;
 
 -- name: deletePoliticaMora

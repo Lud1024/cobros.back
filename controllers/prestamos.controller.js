@@ -54,11 +54,20 @@ exports.getByCliente = async (req, res) => {
 
 /**
  * POST /prestamos
+ * Acepta tanto nombres de BD (monto, tasa_interes_anual, plazo_cuotas, fecha_inicio)
+ * como nombres de frontend (monto_prestamo, tasa_interes, plazo_meses, fecha_desembolso)
  */
 exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { id_cliente, monto, tasa_interes_anual, id_periodicidad, plazo_cuotas, fecha_inicio, dia_pago } = req.body;
+    // Mapear campos del frontend a campos de la BD
+    const id_cliente = req.body.id_cliente;
+    const monto = req.body.monto ?? req.body.monto_prestamo;
+    const tasa_interes_anual = req.body.tasa_interes_anual ?? req.body.tasa_interes;
+    const id_periodicidad = req.body.id_periodicidad;
+    const plazo_cuotas = req.body.plazo_cuotas ?? req.body.plazo_meses;
+    const fecha_inicio = req.body.fecha_inicio ?? req.body.fecha_desembolso;
+    const dia_pago = req.body.dia_pago ?? 1; // Default a 1 si no se proporciona
 
     // Validar dia_pago (1-31)
     if (dia_pago < 1 || dia_pago > 31) {
@@ -67,7 +76,15 @@ exports.create = async (req, res) => {
     }
 
     const [result] = await sequelize.query(sql.createPrestamo, {
-      replacements: { id_cliente, monto, tasa_interes_anual, id_periodicidad, plazo_cuotas, fecha_inicio, dia_pago },
+      replacements: {
+        id_cliente: id_cliente ?? null,
+        monto: monto ?? null,
+        tasa_interes_anual: tasa_interes_anual ?? null,
+        id_periodicidad: id_periodicidad ?? null,
+        plazo_cuotas: plazo_cuotas ?? null,
+        fecha_inicio: fecha_inicio ?? null,
+        dia_pago: dia_pago ?? 1
+      },
       type: QueryTypes.INSERT,
       transaction
     });
@@ -86,17 +103,31 @@ exports.create = async (req, res) => {
 
 /**
  * PATCH /prestamos/:id
+ * Acepta tanto nombres de BD como nombres de frontend
  */
 exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
+    // Mapear campos del frontend a campos de la BD
+    const dia_pago = updates.dia_pago;
+    
     // Validar dia_pago si se actualiza
-    if (updates.dia_pago && (updates.dia_pago < 1 || updates.dia_pago > 31)) {
+    if (dia_pago && (dia_pago < 1 || dia_pago > 31)) {
       return res.status(400).json({ error: 'dia_pago debe estar entre 1 y 31' });
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cliente: updates.id_cliente ?? null,
+      monto: updates.monto ?? updates.monto_prestamo ?? null,
+      tasa_interes_anual: updates.tasa_interes_anual ?? updates.tasa_interes ?? null,
+      id_periodicidad: updates.id_periodicidad ?? null,
+      plazo_cuotas: updates.plazo_cuotas ?? updates.plazo_meses ?? null,
+      fecha_inicio: updates.fecha_inicio ?? updates.fecha_desembolso ?? null,
+      dia_pago: updates.dia_pago ?? null,
+      estado: updates.estado ?? null
+    };
 
     await sequelize.query(sql.updatePrestamo, {
       replacements,

@@ -45,12 +45,12 @@ VALUES (
 -- name: updateVerificacionPrestamo
 UPDATE verificaciones_prestamo
 SET
-  id_cliente       = :id_cliente,
-  fecha_solicitud  = :fecha_solicitud,
-  monto_solicitado = :monto_solicitado,
-  estado           = :estado,
-  analista         = :analista,
-  comentarios      = :comentarios
+  id_cliente       = COALESCE(:id_cliente, id_cliente),
+  fecha_solicitud  = COALESCE(:fecha_solicitud, fecha_solicitud),
+  monto_solicitado = COALESCE(:monto_solicitado, monto_solicitado),
+  estado           = COALESCE(:estado, estado),
+  analista         = COALESCE(:analista, analista),
+  comentarios      = COALESCE(:comentarios, comentarios)
 WHERE id_verificacion = :id;
 
 -- name: deleteVerificacionPrestamo

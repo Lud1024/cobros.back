@@ -21,7 +21,10 @@ router.get('/usuario/:id_usuario/cartera/:id_cartera', ctrl.getByUsuarioCartera)
 // Asigna un rol a un usuario en una cartera
 router.post('/', ctrl.create);
 
-// Remueve un rol de un usuario en una cartera
+// Remueve un rol de un usuario en una cartera (ruta simplificada para el frontend)
+router.delete('/:id_usuario/:id_rol/:id_cartera', ctrl.remove);
+
+// Remueve un rol de un usuario en una cartera (ruta descriptiva alternativa)
 router.delete('/usuario/:id_usuario/rol/:id_rol/cartera/:id_cartera', ctrl.remove);
 
 module.exports = router;

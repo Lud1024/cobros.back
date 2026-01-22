@@ -92,11 +92,11 @@ exports.create = async (req, res) => {
 
     await sequelize.query(sql.createPoliticaMora, {
       replacements: {
-        id_cartera,
-        tasa_mora_diaria,
-        tope_mora,
-        vigente_desde,
-        vigente_hasta
+        id_cartera: id_cartera ?? null,
+        tasa_mora_diaria: tasa_mora_diaria ?? null,
+        tope_mora: tope_mora ?? null,
+        vigente_desde: vigente_desde ?? null,
+        vigente_hasta: vigente_hasta ?? null
       },
       type: QueryTypes.INSERT,
       transaction
@@ -136,7 +136,14 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'vigente_desde no puede ser mayor a vigente_hasta' });
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cartera: updates.id_cartera ?? null,
+      tasa_mora_diaria: updates.tasa_mora_diaria ?? null,
+      tope_mora: updates.tope_mora ?? null,
+      vigente_desde: updates.vigente_desde ?? null,
+      vigente_hasta: updates.vigente_hasta ?? null
+    };
 
     await sequelize.query(sql.updatePoliticaMora, {
       replacements,

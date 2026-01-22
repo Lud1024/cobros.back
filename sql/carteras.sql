@@ -27,8 +27,8 @@ VALUES (
 -- name: updateCartera
 UPDATE carteras
 SET
-  nombre      = :nombre,
-  descripcion = :descripcion
+  nombre      = COALESCE(:nombre, nombre),
+  descripcion = COALESCE(:descripcion, descripcion)
 WHERE id_cartera = :id;
 
 -- name: deleteCartera

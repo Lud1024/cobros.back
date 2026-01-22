@@ -42,7 +42,10 @@ exports.create = async (req, res) => {
   try {
     const { nombre_rol, permisos } = req.body;
     const [result] = await sequelize.query(sql.createRol, {
-      replacements: { nombre_rol, permisos: JSON.stringify(permisos) },
+      replacements: {
+        nombre_rol: nombre_rol ?? null,
+        permisos: permisos ? JSON.stringify(permisos) : null
+      },
       type: QueryTypes.INSERT,
       transaction
     });
@@ -65,10 +68,11 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
-    if (updates.permisos) {
-      updates.permisos = JSON.stringify(updates.permisos);
-    }
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      nombre_rol: updates.nombre_rol ?? null,
+      permisos: updates.permisos ? JSON.stringify(updates.permisos) : null
+    };
     await sequelize.query(sql.updateRol, {
       replacements,
       type: QueryTypes.UPDATE

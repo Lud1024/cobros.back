@@ -43,11 +43,11 @@ VALUES (
 -- name: updateVisitaCobro
 UPDATE visitas_cobro
 SET
-  id_cliente        = :id_cliente,
-  id_prestamo       = :id_prestamo,
-  resultado         = :resultado,
-  mensaje_dejado    = :mensaje_dejado,
-  total_cobros_info = :total_cobros_info
+  id_cliente        = COALESCE(:id_cliente, id_cliente),
+  id_prestamo       = COALESCE(:id_prestamo, id_prestamo),
+  resultado         = COALESCE(:resultado, resultado),
+  mensaje_dejado    = COALESCE(:mensaje_dejado, mensaje_dejado),
+  total_cobros_info = COALESCE(:total_cobros_info, total_cobros_info)
 WHERE id_visita = :id;
 
 -- name: deleteVisitaCobro

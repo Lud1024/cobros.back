@@ -37,13 +37,13 @@ VALUES (
 -- name: updateUsuario
 UPDATE usuarios
 SET
-  usuario       = :usuario,
-  password_hash = :password_hash,
-  nombre        = :nombre,
-  apellido      = :apellido,
-  correo        = :correo,
-  telefono      = :telefono,
-  estado        = :estado
+  usuario       = COALESCE(:usuario, usuario),
+  password_hash = COALESCE(:password_hash, password_hash),
+  nombre        = COALESCE(:nombre, nombre),
+  apellido      = COALESCE(:apellido, apellido),
+  correo        = COALESCE(:correo, correo),
+  telefono      = COALESCE(:telefono, telefono),
+  estado        = COALESCE(:estado, estado)
 WHERE id_usuario = :id;
 
 -- name: deleteUsuario

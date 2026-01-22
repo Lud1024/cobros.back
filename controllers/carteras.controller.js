@@ -42,7 +42,7 @@ exports.create = async (req, res) => {
   try {
     const { nombre, descripcion } = req.body;
     const [result] = await sequelize.query(sql.createCartera, {
-      replacements: { nombre, descripcion },
+      replacements: { nombre: nombre ?? null, descripcion: descripcion ?? null },
       type: QueryTypes.INSERT,
       transaction
     });
@@ -62,7 +62,11 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      nombre: updates.nombre ?? null,
+      descripcion: updates.descripcion ?? null
+    };
     await sequelize.query(sql.updateCartera, {
       replacements,
       type: QueryTypes.UPDATE

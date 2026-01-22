@@ -71,7 +71,10 @@ exports.create = async (req, res) => {
     }
 
     await sequelize.query(sql.createRolCartera, {
-      replacements: { id_rol, id_cartera },
+      replacements: {
+        id_rol: id_rol ?? null,
+        id_cartera: id_cartera ?? null
+      },
       type: QueryTypes.INSERT,
       transaction
     });

@@ -36,10 +36,10 @@ VALUES (
 -- name: updateClienteDocumento
 UPDATE cliente_documentos
 SET
-  id_cliente      = :id_cliente,
-  tipo_documento  = :tipo_documento,
-  nombre_archivo  = :nombre_archivo,
-  ruta_storage    = :ruta_storage
+  id_cliente      = COALESCE(:id_cliente, id_cliente),
+  tipo_documento  = COALESCE(:tipo_documento, tipo_documento),
+  nombre_archivo  = COALESCE(:nombre_archivo, nombre_archivo),
+  ruta_storage    = COALESCE(:ruta_storage, ruta_storage)
 WHERE id_documento = :id;
 
 -- name: deleteClienteDocumento

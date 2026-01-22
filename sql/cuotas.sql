@@ -46,15 +46,15 @@ VALUES (
 -- name: updateCuota
 UPDATE cuotas
 SET
-  id_prestamo         = :id_prestamo,
-  numero_cuota        = :numero_cuota,
-  fecha_vencimiento   = :fecha_vencimiento,
-  capital_programado  = :capital_programado,
-  interes_programado  = :interes_programado,
-  capital_pagado      = :capital_pagado,
-  interes_pagado      = :interes_pagado,
-  mora_acumulada      = :mora_acumulada,
-  estado              = :estado
+  id_prestamo         = COALESCE(:id_prestamo, id_prestamo),
+  numero_cuota        = COALESCE(:numero_cuota, numero_cuota),
+  fecha_vencimiento   = COALESCE(:fecha_vencimiento, fecha_vencimiento),
+  capital_programado  = COALESCE(:capital_programado, capital_programado),
+  interes_programado  = COALESCE(:interes_programado, interes_programado),
+  capital_pagado      = COALESCE(:capital_pagado, capital_pagado),
+  interes_pagado      = COALESCE(:interes_pagado, interes_pagado),
+  mora_acumulada      = COALESCE(:mora_acumulada, mora_acumulada),
+  estado              = COALESCE(:estado, estado)
 WHERE id_cuota = :id;
 
 -- name: deleteCuota

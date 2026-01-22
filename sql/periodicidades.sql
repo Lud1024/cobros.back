@@ -27,8 +27,8 @@ VALUES (
 -- name: updatePeriodicidad
 UPDATE periodicidades
 SET
-  codigo = :codigo,
-  dias   = :dias
+  codigo = COALESCE(:codigo, codigo),
+  dias   = COALESCE(:dias, dias)
 WHERE id_periodicidad = :id;
 
 -- name: deletePeriodicidad

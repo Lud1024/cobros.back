@@ -27,8 +27,8 @@ VALUES (
 -- name: updateRechazoHistorial
 UPDATE rechazos_historial
 SET
-  id_verificacion = :id_verificacion,
-  motivo          = :motivo
+  id_verificacion = COALESCE(:id_verificacion, id_verificacion),
+  motivo          = COALESCE(:motivo, motivo)
 WHERE id_rechazo = :id;
 
 -- name: deleteRechazoHistorial

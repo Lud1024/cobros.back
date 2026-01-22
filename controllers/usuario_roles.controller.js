@@ -105,7 +105,11 @@ exports.create = async (req, res) => {
     }
 
     await sequelize.query(sql.createUsuarioRol, {
-      replacements: { id_usuario, id_rol, id_cartera },
+      replacements: {
+        id_usuario: id_usuario ?? null,
+        id_rol: id_rol ?? null,
+        id_cartera: id_cartera ?? null
+      },
       type: QueryTypes.INSERT,
       transaction
     });

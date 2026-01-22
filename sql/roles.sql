@@ -27,8 +27,8 @@ VALUES (
 -- name: updateRol
 UPDATE roles
 SET
-  nombre_rol = :nombre_rol,
-  permisos   = :permisos
+  nombre_rol = COALESCE(:nombre_rol, nombre_rol),
+  permisos   = COALESCE(:permisos, permisos)
 WHERE id_rol = :id;
 
 -- name: deleteRol

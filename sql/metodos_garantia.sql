@@ -27,8 +27,8 @@ VALUES (
 -- name: updateMetodoGarantia
 UPDATE metodos_garantia
 SET
-  nombre_metodo = :nombre_metodo,
-  descripcion   = :descripcion
+  nombre_metodo = COALESCE(:nombre_metodo, nombre_metodo),
+  descripcion   = COALESCE(:descripcion, descripcion)
 WHERE id_metodo = :id;
 
 -- name: deleteMetodoGarantia

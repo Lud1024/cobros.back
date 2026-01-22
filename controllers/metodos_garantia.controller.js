@@ -49,7 +49,10 @@ exports.create = async (req, res) => {
     }
 
     const [result] = await sequelize.query(sql.createMetodoGarantia, {
-      replacements: { nombre_metodo: nombre_metodo.trim(), descripcion },
+      replacements: {
+        nombre_metodo: nombre_metodo ? nombre_metodo.trim() : null,
+        descripcion: descripcion ?? null
+      },
       type: QueryTypes.INSERT,
       transaction
     });
@@ -86,7 +89,11 @@ exports.update = async (req, res) => {
       updates.nombre_metodo = updates.nombre_metodo.trim();
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      nombre_metodo: updates.nombre_metodo ?? null,
+      descripcion: updates.descripcion ?? null
+    };
 
     await sequelize.query(sql.updateMetodoGarantia, {
       replacements,

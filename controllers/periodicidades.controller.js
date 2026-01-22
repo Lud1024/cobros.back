@@ -88,7 +88,11 @@ exports.update = async (req, res) => {
       }
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      codigo: updates.codigo ?? null,
+      dias: updates.dias ?? null
+    };
 
     await sequelize.query(sql.updatePeriodicidad, {
       replacements,

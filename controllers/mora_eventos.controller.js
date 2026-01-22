@@ -90,10 +90,10 @@ exports.create = async (req, res) => {
 
     await sequelize.query(sql.createMoraEvento, {
       replacements: {
-        id_cuota,
-        fecha_calculo,
-        dias_atraso,
-        interes_mora
+        id_cuota: id_cuota ?? null,
+        fecha_calculo: fecha_calculo ?? null,
+        dias_atraso: dias_atraso ?? null,
+        interes_mora: interes_mora ?? null
       },
       type: QueryTypes.INSERT,
       transaction
@@ -128,7 +128,13 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'interes_mora no puede ser negativo' });
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cuota: updates.id_cuota ?? null,
+      fecha_calculo: updates.fecha_calculo ?? null,
+      dias_atraso: updates.dias_atraso ?? null,
+      interes_mora: updates.interes_mora ?? null
+    };
 
     await sequelize.query(sql.updateMoraEvento, {
       replacements,

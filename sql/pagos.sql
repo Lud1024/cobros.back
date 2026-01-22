@@ -35,17 +35,12 @@ VALUES (
 -- name: updatePago
 UPDATE pagos
 SET
-  id_prestamo    = :id_prestamo,
-  fecha_pago     = :fecha_pago,
-  monto_recibido = :monto_recibido,
-  metodo_pago    = :metodo_pago,
-  origen         = :origen,
-  observaciones  = :observaciones
-WHERE id_pago = :id;
-
--- name: updateNumeroRecibo
-UPDATE pagos
-SET numero_recibo = :numero_recibo
+  id_prestamo    = COALESCE(:id_prestamo, id_prestamo),
+  fecha_pago     = COALESCE(:fecha_pago, fecha_pago),
+  monto_recibido = COALESCE(:monto_recibido, monto_recibido),
+  metodo_pago    = COALESCE(:metodo_pago, metodo_pago),
+  origen         = COALESCE(:origen, origen),
+  observaciones  = COALESCE(:observaciones, observaciones)
 WHERE id_pago = :id;
 
 -- name: deletePago

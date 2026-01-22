@@ -108,12 +108,12 @@ exports.create = async (req, res) => {
 
     await sequelize.query(sql.createVerificacionPrestamo, {
       replacements: {
-        id_cliente,
-        fecha_solicitud,
-        monto_solicitado,
-        estado,
-        analista,
-        comentarios
+        id_cliente: id_cliente ?? null,
+        fecha_solicitud: fecha_solicitud ?? null,
+        monto_solicitado: monto_solicitado ?? null,
+        estado: estado ?? null,
+        analista: analista ?? null,
+        comentarios: comentarios ?? null
       },
       type: QueryTypes.INSERT,
       transaction
@@ -151,7 +151,15 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'monto_solicitado debe ser mayor a 0' });
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_cliente: updates.id_cliente ?? null,
+      fecha_solicitud: updates.fecha_solicitud ?? null,
+      monto_solicitado: updates.monto_solicitado ?? null,
+      estado: updates.estado ?? null,
+      analista: updates.analista ?? null,
+      comentarios: updates.comentarios ?? null
+    };
 
     await sequelize.query(sql.updateVerificacionPrestamo, {
       replacements,

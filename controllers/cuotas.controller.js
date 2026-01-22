@@ -167,7 +167,18 @@ exports.update = async (req, res) => {
       }
     }
 
-    const replacements = { id, ...updates };
+    const replacements = {
+      id,
+      id_prestamo: updates.id_prestamo ?? null,
+      numero_cuota: updates.numero_cuota ?? null,
+      fecha_vencimiento: updates.fecha_vencimiento ?? null,
+      capital_programado: updates.capital_programado ?? null,
+      interes_programado: updates.interes_programado ?? null,
+      capital_pagado: updates.capital_pagado ?? null,
+      interes_pagado: updates.interes_pagado ?? null,
+      mora_acumulada: updates.mora_acumulada ?? null,
+      estado: updates.estado ?? null
+    };
 
     await sequelize.query(sql.updateCuota, {
       replacements,
