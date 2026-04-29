@@ -2,12 +2,8 @@ DirectoryIndex disabled
 
 RewriteEngine On
 
-# Redirigir todas las peticiones al proceso de Node.js
+# Redirigir todas las peticiones al proceso de Node.js.
+# Este puerto debe coincidir con server.js cuando no existe process.env.PORT.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ http://localhost:3000/$1 [P,L]
-
-# Configurar headers para API
-Header set Access-Control-Allow-Origin "*"
-Header set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+RewriteRule ^(.*)$ http://127.0.0.1:3300/$1 [P,L,QSA]
