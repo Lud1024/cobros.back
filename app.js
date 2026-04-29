@@ -3,76 +3,110 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-// Lista de orígenes permitidos
+const parseEnvList = (value) => String(value || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+// Lista de origenes permitidos.
+// En produccion se puede ampliar con:
+// CORS_ORIGINS=https://creditos.catchcode.es,https://otro-dominio.com
 const allowedOrigins = [
-  'http://localhost:5173', 
-  'http://localhost:3000',
-  'http://creditos.catchcode.es',
-  'https://creditos.catchcode.es',
-  'https://api-cobros.catchcode.es',
-  'https://catchcode.es',
-  'http://catchcode.es'
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:3300",
+  "http://creditos.catchcode.es",
+  "https://creditos.catchcode.es",
+  "https://api-cobros.catchcode.es",
+  "https://catchcode.es",
+  "http://catchcode.es",
+  ...parseEnvList(process.env.CORS_ORIGINS),
 ];
 
-// Patrones regex para orígenes dinámicos
+// Patrones regex para origenes dinamicos
 const originPatterns = [
   /^https?:\/\/.*\.catchcode\.es$/,
   /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
   /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-  /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/
+  /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
 ];
 
-// Función para verificar origen
 function isAllowedOrigin(origin) {
   if (!origin) return true; // Permitir requests sin origin
   if (allowedOrigins.includes(origin)) return true;
-  return originPatterns.some(pattern => pattern.test(origin));
+  return originPatterns.some((pattern) => pattern.test(origin));
 }
 
-// Configuración CORS
+const corsMethods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+const corsDefaultHeaders = ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"];
+
+// Respuesta CORS explicita antes de rutas/middlewares. Esto evita que el
+// preflight falle si el navegador pregunta por headers en distinto casing.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (isAllowedOrigin(origin)) {
+    if (origin) {
+      res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+    }
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", corsMethods.join(", "));
+    res.header(
+      "Access-Control-Allow-Headers",
+      req.headers["access-control-request-headers"] || corsDefaultHeaders.join(", ")
+    );
+  }
+
+  if (req.method === "OPTIONS") {
+    if (!isAllowedOrigin(origin)) {
+      console.warn("CORS preflight blocked origin:", origin);
+      return res.sendStatus(403);
+    }
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin(origin, callback) {
     if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
-      console.warn('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.warn("CORS blocked origin:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Request-Id'],
-  optionsSuccessStatus: 200,
-  preflightContinue: false
+  methods: corsMethods,
+  allowedHeaders: corsDefaultHeaders,
+  exposedHeaders: ["Content-Length", "X-Request-Id"],
+  optionsSuccessStatus: 204,
+  preflightContinue: false,
 };
 
-// Manejar preflight OPTIONS requests PRIMERO (antes de cualquier otro middleware)
-app.options('*', cors(corsOptions));
-
-// Aplicar CORS a todas las rutas
 app.use(cors(corsOptions));
-
 app.use(express.json());
 
 // Router para agrupar todas las rutas
 const apiRouter = express.Router();
 
-// Ruta raíz con status 200
+// Ruta raiz con status 200
 apiRouter.get("/", (req, res) => {
-  res.status(200).send("API de Préstamos y Cobros - Sistema activo");
+  res.status(200).send("API de Prestamos y Cobros - Sistema activo");
 });
 
 // Ruta de health check
 apiRouter.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "OK", 
+  res.status(200).json({
+    status: "OK",
     message: "Servidor funcionando correctamente",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
-// Montar rutas de autenticación (públicas)
+// Montar rutas de autenticacion publicas
 apiRouter.use("/auth", require("./routes/auth.routes"));
 
 // Montar rutas protegidas
@@ -97,7 +131,7 @@ apiRouter.use("/politicas-mora", require("./routes/politicas_mora.routes"));
 apiRouter.use("/usuario-roles", require("./routes/usuario_roles.routes"));
 apiRouter.use("/rol-cartera", require("./routes/rol_cartera.routes"));
 
-// Montar el router en la raíz y en /api para flexibilidad
+// Montar el router en la raiz y en /api para flexibilidad
 app.use("/", apiRouter);
 app.use("/api", apiRouter);
 
