@@ -2,12 +2,14 @@
 const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+const { actualizarMoraPrestamo, actualizarMoraTodosLosPrestamos } = require('../services/loanAccounting');
 
 /**
  * GET /cuotas
  */
 exports.getAll = async (req, res) => {
   try {
+    await actualizarMoraTodosLosPrestamos();
     const cuotas = await sequelize.query(sql.listCuotas, { type: QueryTypes.SELECT });
     res.json(cuotas);
   } catch (err) {
@@ -40,6 +42,7 @@ exports.getById = async (req, res) => {
 exports.getByPrestamo = async (req, res) => {
   const { id_prestamo } = req.params;
   try {
+    await actualizarMoraPrestamo(id_prestamo);
     const cuotas = await sequelize.query(sql.getCuotasByPrestamo, {
       replacements: { id_prestamo },
       type: QueryTypes.SELECT

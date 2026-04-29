@@ -4,6 +4,38 @@ const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
 const logger = require('../utils/logger');
 
+const trimOrNull = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed || null;
+};
+
+const normalizeClienteInput = (input) => ({
+  id_cartera: input.id_cartera ?? null,
+  nombre: trimOrNull(input.nombre),
+  apellido: trimOrNull(input.apellido),
+  dpi: trimOrNull(input.dpi),
+  nit: trimOrNull(input.nit),
+  direccion: trimOrNull(input.direccion),
+  telefono: trimOrNull(input.telefono),
+  correo: trimOrNull(input.correo),
+  estado: trimOrNull(input.estado),
+});
+
+const validateClienteInput = (cliente) => {
+  if (!cliente.id_cartera) return 'Cartera es requerida';
+  if (!cliente.nombre) return 'Nombre es requerido';
+  if (!cliente.apellido) return 'Apellido es requerido';
+  if (!cliente.dpi) return 'DPI es requerido';
+  if (!cliente.direccion) return 'Direccion es requerida';
+  if (!/^\d{13}$/.test(cliente.dpi)) return 'El DPI debe tener 13 digitos';
+  if (cliente.nit && !/^\d{1,12}-[\dkK]$/.test(cliente.nit)) return 'Formato de NIT invalido, ejemplo 1234567-8';
+  if (cliente.telefono && !/^\d{8}$/.test(cliente.telefono)) return 'El telefono debe tener 8 digitos';
+  if (cliente.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cliente.correo)) return 'Correo invalido';
+  return null;
+};
+
 /**
  * GET /clientes
  */
@@ -41,7 +73,14 @@ exports.getById = async (req, res) => {
 exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { id_cartera, nombre, apellido, dpi, nit, direccion, telefono, correo } = req.body;
+    const cliente = normalizeClienteInput(req.body);
+    const validationError = validateClienteInput(cliente);
+    if (validationError) {
+      await transaction.rollback();
+      return res.status(400).json({ error: validationError });
+    }
+
+    const { id_cartera, nombre, apellido, dpi, nit, direccion, telefono, correo } = cliente;
 
     // Verificar unicidad de DPI si se proporciona
     if (dpi) {
@@ -71,14 +110,14 @@ exports.create = async (req, res) => {
 
     const [result] = await sequelize.query(sql.createCliente, {
       replacements: {
-        id_cartera: id_cartera ?? null,
-        nombre: nombre ?? null,
-        apellido: apellido ?? null,
-        dpi: dpi ?? null,
-        nit: nit ?? null,
-        direccion: direccion ?? null,
-        telefono: telefono ?? null,
-        correo: correo ?? null
+        id_cartera,
+        nombre,
+        apellido,
+        dpi,
+        nit,
+        direccion,
+        telefono,
+        correo
       },
       type: QueryTypes.INSERT,
       transaction
@@ -101,8 +140,13 @@ exports.create = async (req, res) => {
  */
 exports.update = async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
+  const updates = normalizeClienteInput(req.body);
   try {
+    const validationError = validateClienteInput(updates);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     // Verificar unicidad de DPI si se actualiza
     if (updates.dpi) {
       const existingDpi = await sequelize.query(sql.getClienteByDpi, {
@@ -128,15 +172,15 @@ exports.update = async (req, res) => {
     // Preparar replacements con valores null para campos no enviados
     const replacements = {
       id,
-      id_cartera: updates.id_cartera || null,
-      nombre: updates.nombre || null,
-      apellido: updates.apellido || null,
-      dpi: updates.dpi || null,
-      nit: updates.nit || null,
-      direccion: updates.direccion || null,
-      telefono: updates.telefono || null,
-      correo: updates.correo || null,
-      estado: updates.estado || null
+      id_cartera: updates.id_cartera,
+      nombre: updates.nombre,
+      apellido: updates.apellido,
+      dpi: updates.dpi,
+      nit: updates.nit,
+      direccion: updates.direccion,
+      telefono: updates.telefono,
+      correo: updates.correo,
+      estado: updates.estado
     };
 
     await sequelize.query(sql.updateCliente, {

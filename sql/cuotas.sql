@@ -1,18 +1,62 @@
 -- sql/cuotas.sql
 
 -- name: listCuotas
-SELECT *
-FROM cuotas;
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota;
 
 -- name: getCuotaById
-SELECT *
-FROM cuotas
-WHERE id_cuota = :id;
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.id_cuota = :id
+;
 
 -- name: getCuotasByPrestamo
-SELECT *
-FROM cuotas
-WHERE id_prestamo = :id_prestamo;
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.id_prestamo = :id_prestamo
+ORDER BY c.numero_cuota;
 
 -- name: getCuotaByPrestamoNumero
 SELECT *

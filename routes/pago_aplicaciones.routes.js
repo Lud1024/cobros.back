@@ -2,6 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/pago_aplicaciones.controller');
+const { authenticateToken } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las aplicaciones de pago
 router.get('/', ctrl.getAll);
@@ -19,9 +21,9 @@ router.get('/concepto/:aplicado_a', ctrl.getByConcepto);
 router.post('/', ctrl.create);
 
 // Actualiza una aplicación de pago existente
-router.patch('/pago/:id_pago/cuota/:id_cuota/concepto/:aplicado_a', ctrl.update);
+router.patch('/pago/:id_pago/cuota/:id_cuota/concepto/:aplicado_a', authenticateToken, requirePermission('aplicar_pagos'), ctrl.update);
 
 // Elimina una aplicación de pago
-router.delete('/pago/:id_pago/cuota/:id_cuota/concepto/:aplicado_a', ctrl.remove);
+router.delete('/pago/:id_pago/cuota/:id_cuota/concepto/:aplicado_a', authenticateToken, requirePermission('aplicar_pagos'), ctrl.remove);
 
 module.exports = router;

@@ -1,7 +1,23 @@
 // controllers/rechazos_historial.controller.js
-const { QueryTypes, Transaction } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+
+const markVerificacionRejected = async (idVerificacion, transaction) => {
+  await sequelize.query(sql.updateVerificacionPrestamo, {
+    replacements: {
+      id: idVerificacion,
+      id_cliente: null,
+      fecha_solicitud: null,
+      monto_solicitado: null,
+      estado: 'rechazado',
+      analista: null,
+      comentarios: null
+    },
+    type: QueryTypes.UPDATE,
+    transaction
+  });
+};
 
 /**
  * GET /rechazos-historial
@@ -47,7 +63,7 @@ exports.getByVerificacion = async (req, res) => {
     res.json(rechazos);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al obtener rechazos de la verificación' });
+    res.status(500).json({ error: 'Error al obtener rechazos de la verificacion' });
   }
 };
 
@@ -58,9 +74,14 @@ exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { id_verificacion, motivo } = req.body;
+    const cleanMotivo = typeof motivo === 'string' ? motivo.trim() : '';
 
-    // Validar motivo requerido
-    if (!motivo || motivo.trim() === '') {
+    if (!id_verificacion) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'id_verificacion es requerido' });
+    }
+
+    if (!cleanMotivo) {
       await transaction.rollback();
       return res.status(400).json({ error: 'motivo es requerido' });
     }
@@ -68,11 +89,13 @@ exports.create = async (req, res) => {
     await sequelize.query(sql.createRechazoHistorial, {
       replacements: {
         id_verificacion,
-        motivo: motivo.trim()
+        motivo: cleanMotivo
       },
       type: QueryTypes.INSERT,
       transaction
     });
+
+    await markVerificacionRejected(id_verificacion, transaction);
 
     await transaction.commit();
     res.status(201).json({ message: 'Rechazo de historial creado' });
@@ -80,7 +103,7 @@ exports.create = async (req, res) => {
     await transaction.rollback();
     console.error(err);
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(400).json({ error: 'Verificación no encontrada' });
+      return res.status(400).json({ error: 'Verificacion no encontrada' });
     }
     res.status(500).json({ error: 'Error al crear rechazo de historial' });
   }
@@ -92,13 +115,16 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  const transaction = await sequelize.transaction();
+
   try {
-    // Validar motivo si se actualiza
-    if (updates.motivo) {
-      if (updates.motivo.trim() === '') {
-        return res.status(400).json({ error: 'motivo no puede estar vacío' });
+    if (updates.motivo !== undefined) {
+      const cleanMotivo = typeof updates.motivo === 'string' ? updates.motivo.trim() : '';
+      if (!cleanMotivo) {
+        await transaction.rollback();
+        return res.status(400).json({ error: 'motivo no puede estar vacio' });
       }
-      updates.motivo = updates.motivo.trim();
+      updates.motivo = cleanMotivo;
     }
 
     const replacements = {
@@ -109,13 +135,21 @@ exports.update = async (req, res) => {
 
     await sequelize.query(sql.updateRechazoHistorial, {
       replacements,
-      type: QueryTypes.UPDATE
+      type: QueryTypes.UPDATE,
+      transaction
     });
+
+    if (updates.id_verificacion) {
+      await markVerificacionRejected(updates.id_verificacion, transaction);
+    }
+
+    await transaction.commit();
     res.json({ message: 'Rechazo de historial actualizado' });
   } catch (err) {
+    await transaction.rollback();
     console.error(err);
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(400).json({ error: 'Verificación no encontrada' });
+      return res.status(400).json({ error: 'Verificacion no encontrada' });
     }
     res.status(500).json({ error: 'Error al actualizar rechazo de historial' });
   }

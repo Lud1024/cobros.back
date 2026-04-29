@@ -2,23 +2,25 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/cuotas.controller');
+const { authenticateToken } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las cuotas
 router.get('/', ctrl.getAll);
 
-// Obtiene una cuota por ID
-router.get('/:id', ctrl.getById);
-
 // Obtiene cuotas por préstamo
 router.get('/prestamo/:id_prestamo', ctrl.getByPrestamo);
+
+// Obtiene una cuota por ID
+router.get('/:id', ctrl.getById);
 
 // Crea una nueva cuota
 router.post('/', ctrl.create);
 
 // Actualiza una cuota existente
-router.patch('/:id', ctrl.update);
+router.patch('/:id', authenticateToken, requirePermission('gestionar_cuotas'), ctrl.update);
 
 // Elimina una cuota
-router.delete('/:id', ctrl.remove);
+router.delete('/:id', authenticateToken, requirePermission('gestionar_cuotas'), ctrl.remove);
 
 module.exports = router;

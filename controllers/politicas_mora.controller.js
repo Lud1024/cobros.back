@@ -2,6 +2,7 @@
 const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+const { isValidDateOnly } = require('../utils/dateValidation');
 
 /**
  * GET /politicas-mora
@@ -71,6 +72,7 @@ exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { id_cartera, tasa_mora_diaria, tope_mora, vigente_desde, vigente_hasta } = req.body;
+    const vigenteHasta = vigente_hasta || null;
 
     // Validar tasa positiva
     if (tasa_mora_diaria <= 0) {
@@ -85,7 +87,12 @@ exports.create = async (req, res) => {
     }
 
     // Validar fechas lógicas
-    if (vigente_hasta && vigente_desde > vigente_hasta) {
+    if (!isValidDateOnly(vigente_desde) || (vigenteHasta && !isValidDateOnly(vigenteHasta))) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Las fechas de vigencia deben tener formato YYYY-MM-DD valido' });
+    }
+
+    if (vigenteHasta && vigente_desde > vigenteHasta) {
       await transaction.rollback();
       return res.status(400).json({ error: 'vigente_desde no puede ser mayor a vigente_hasta' });
     }
@@ -96,7 +103,7 @@ exports.create = async (req, res) => {
         tasa_mora_diaria: tasa_mora_diaria ?? null,
         tope_mora: tope_mora ?? null,
         vigente_desde: vigente_desde ?? null,
-        vigente_hasta: vigente_hasta ?? null
+        vigente_hasta: vigenteHasta
       },
       type: QueryTypes.INSERT,
       transaction
@@ -131,8 +138,19 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'tope_mora debe ser mayor a 0' });
     }
 
+    const vigenteDesde = updates.vigente_desde || null;
+    const vigenteHasta = updates.vigente_hasta || null;
+
+    if (updates.vigente_desde !== undefined && !isValidDateOnly(vigenteDesde)) {
+      return res.status(400).json({ error: 'vigente_desde debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
+    if (updates.vigente_hasta && !isValidDateOnly(vigenteHasta)) {
+      return res.status(400).json({ error: 'vigente_hasta debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
     // Validar fechas si se actualizan
-    if (updates.vigente_desde && updates.vigente_hasta && updates.vigente_desde > updates.vigente_hasta) {
+    if (vigenteDesde && vigenteHasta && vigenteDesde > vigenteHasta) {
       return res.status(400).json({ error: 'vigente_desde no puede ser mayor a vigente_hasta' });
     }
 
@@ -141,8 +159,8 @@ exports.update = async (req, res) => {
       id_cartera: updates.id_cartera ?? null,
       tasa_mora_diaria: updates.tasa_mora_diaria ?? null,
       tope_mora: updates.tope_mora ?? null,
-      vigente_desde: updates.vigente_desde ?? null,
-      vigente_hasta: updates.vigente_hasta ?? null
+      vigente_desde: vigenteDesde,
+      vigente_hasta: vigenteHasta
     };
 
     await sequelize.query(sql.updatePoliticaMora, {

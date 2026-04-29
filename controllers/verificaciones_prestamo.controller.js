@@ -2,6 +2,7 @@
 const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+const { isValidDateOnly } = require('../utils/dateValidation');
 
 /**
  * GET /verificaciones-prestamo
@@ -93,6 +94,11 @@ exports.create = async (req, res) => {
   try {
     const { id_cliente, fecha_solicitud, monto_solicitado, estado, analista, comentarios } = req.body;
 
+    if (!isValidDateOnly(fecha_solicitud)) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'fecha_solicitud debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
     // Validar estado
     const estadosValidos = ['en_proceso', 'aprobado', 'rechazado'];
     if (!estadosValidos.includes(estado)) {
@@ -138,6 +144,11 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
+    // Validar estado si se actualiza
+    if (updates.fecha_solicitud !== undefined && !isValidDateOnly(updates.fecha_solicitud)) {
+      return res.status(400).json({ error: 'fecha_solicitud debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
     // Validar estado si se actualiza
     if (updates.estado) {
       const estadosValidos = ['en_proceso', 'aprobado', 'rechazado'];

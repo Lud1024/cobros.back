@@ -2,6 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/rol_cartera.controller');
+const { authenticateToken } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las asignaciones de roles a carteras
 router.get('/', ctrl.getAll);
@@ -13,9 +15,9 @@ router.get('/rol/:id_rol', ctrl.getByRol);
 router.get('/cartera/:id_cartera', ctrl.getByCartera);
 
 // Asigna un rol a una cartera
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, requirePermission('asignar_roles'), ctrl.create);
 
 // Remueve un rol de una cartera
-router.delete('/rol/:id_rol/cartera/:id_cartera', ctrl.remove);
+router.delete('/rol/:id_rol/cartera/:id_cartera', authenticateToken, requirePermission('asignar_roles'), ctrl.remove);
 
 module.exports = router;

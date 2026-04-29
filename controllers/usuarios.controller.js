@@ -8,6 +8,19 @@ const { sendConfirmationEmail } = require('../utils/mailer');
 const { generateToken } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
+function parsePermissions(rawPermissions) {
+  if (!rawPermissions) return {};
+  if (typeof rawPermissions === 'object') return rawPermissions;
+
+  try {
+    const parsed = JSON.parse(rawPermissions);
+    if (typeof parsed === 'string') return parsePermissions(parsed);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 // Función para validar contraseña
 function validatePassword(password) {
   const minLength = 8;
@@ -329,7 +342,7 @@ exports.login = async (req, res) => {
       // Unificar permisos (si tiene true en algún rol, queda true)
       if (rol.permisos) {
         try {
-          const permisos = typeof rol.permisos === 'string' ? JSON.parse(rol.permisos) : rol.permisos;
+          const permisos = parsePermissions(rol.permisos);
           if (permisos && typeof permisos === 'object') {
             Object.entries(permisos).forEach(([key, value]) => {
               if (value === true) {

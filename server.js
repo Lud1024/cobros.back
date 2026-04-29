@@ -10,7 +10,7 @@ if (typeof(PhusionPassenger) !== 'undefined') {
 
 // Passenger asigna el puerto dinámicamente via process.env.PORT
 // O usa 'passenger' como socket
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3300;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor escuchando en puerto ${PORT}`);

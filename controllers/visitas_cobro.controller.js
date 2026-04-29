@@ -92,6 +92,7 @@ exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { id_cliente, id_prestamo, resultado, mensaje_dejado, total_cobros_info } = req.body;
+    const totalCobros = total_cobros_info === '' || total_cobros_info == null ? 0 : Number(total_cobros_info);
 
     // Validar resultado
     const resultadosValidos = ['COBRO', 'NO_ENCONTRADO', 'PROMESA', 'NEGOCIACION', 'OTRO'];
@@ -101,25 +102,26 @@ exports.create = async (req, res) => {
     }
 
     // Validar total_cobros_info no negativo
-    if (total_cobros_info < 0) {
+    if (!Number.isFinite(totalCobros) || totalCobros < 0) {
       await transaction.rollback();
-      return res.status(400).json({ error: 'total_cobros_info no puede ser negativo' });
+      return res.status(400).json({ error: 'total_cobros_info debe ser un numero mayor o igual a 0' });
     }
 
-    await sequelize.query(sql.createVisitaCobro, {
+    const [result] = await sequelize.query(sql.createVisitaCobro, {
       replacements: {
         id_cliente: id_cliente ?? null,
         id_prestamo: id_prestamo ?? null,
         resultado: resultado ?? null,
         mensaje_dejado: mensaje_dejado ?? null,
-        total_cobros_info: total_cobros_info ?? 0
+        total_cobros_info: totalCobros
       },
       type: QueryTypes.INSERT,
       transaction
     });
+    const idVisita = Array.isArray(result) ? result[0] : result;
 
     await transaction.commit();
-    res.status(201).json({ message: 'Visita de cobro creada' });
+    res.status(201).json({ message: 'Visita de cobro creada', id: idVisita });
   } catch (err) {
     await transaction.rollback();
     console.error(err);
@@ -145,9 +147,13 @@ exports.update = async (req, res) => {
       }
     }
 
+    const totalCobros = updates.total_cobros_info === undefined || updates.total_cobros_info === null || updates.total_cobros_info === ''
+      ? null
+      : Number(updates.total_cobros_info);
+
     // Validar total_cobros_info si se actualiza
-    if (updates.total_cobros_info !== undefined && updates.total_cobros_info < 0) {
-      return res.status(400).json({ error: 'total_cobros_info no puede ser negativo' });
+    if (totalCobros !== null && (!Number.isFinite(totalCobros) || totalCobros < 0)) {
+      return res.status(400).json({ error: 'total_cobros_info debe ser un numero mayor o igual a 0' });
     }
 
     const replacements = {
@@ -156,7 +162,7 @@ exports.update = async (req, res) => {
       id_prestamo: updates.id_prestamo ?? null,
       resultado: updates.resultado ?? null,
       mensaje_dejado: updates.mensaje_dejado ?? null,
-      total_cobros_info: updates.total_cobros_info ?? null
+      total_cobros_info: totalCobros
     };
 
     await sequelize.query(sql.updateVisitaCobro, {

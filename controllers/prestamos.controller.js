@@ -3,6 +3,8 @@ const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
 const logger = require('../utils/logger');
+const { generateCuotasForPrestamo } = require('../services/loanAccounting');
+const { isValidDateOnly } = require('../utils/dateValidation');
 
 /**
  * GET /prestamos
@@ -75,6 +77,11 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'dia_pago debe estar entre 1 y 31' });
     }
 
+    if (!isValidDateOnly(fecha_inicio)) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'fecha_inicio debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
     const [result] = await sequelize.query(sql.createPrestamo, {
       replacements: {
         id_cliente: id_cliente ?? null,
@@ -88,12 +95,26 @@ exports.create = async (req, res) => {
       type: QueryTypes.INSERT,
       transaction
     });
+    const idPrestamo = Array.isArray(result) ? result[0] : result;
+    const cuotas = await generateCuotasForPrestamo({
+      idPrestamo,
+      monto,
+      tasaInteresAnual: tasa_interes_anual,
+      idPeriodicidad: id_periodicidad,
+      plazoCuotas: plazo_cuotas,
+      fechaInicio: fecha_inicio,
+      diaPago: dia_pago
+    }, transaction);
+
     await transaction.commit();
-    logger.transaction('✅ PRÉSTAMO CREADO -', { id_prestamo: result, id_cliente, monto, plazo: plazo_cuotas });
-    res.status(201).json({ message: 'Préstamo creado', id: result });
+    logger.transaction('✅ PRÉSTAMO CREADO -', { id_prestamo: idPrestamo, id_cliente, monto, plazo: plazo_cuotas, cuotas: cuotas.length });
+    res.status(201).json({ message: 'Préstamo creado', id: idPrestamo, cuotas_generadas: cuotas.length });
   } catch (err) {
     await transaction.rollback();
     console.error(err);
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
     if (err.name === 'SequelizeForeignKeyConstraintError') {
       return res.status(400).json({ error: 'Cliente o periodicidad no encontrada' });
     }
@@ -117,6 +138,11 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'dia_pago debe estar entre 1 y 31' });
     }
 
+    const fecha_inicio = updates.fecha_inicio ?? updates.fecha_desembolso;
+    if (fecha_inicio !== undefined && !isValidDateOnly(fecha_inicio)) {
+      return res.status(400).json({ error: 'fecha_inicio debe ser una fecha valida en formato YYYY-MM-DD' });
+    }
+
     const replacements = {
       id,
       id_cliente: updates.id_cliente ?? null,
@@ -124,7 +150,7 @@ exports.update = async (req, res) => {
       tasa_interes_anual: updates.tasa_interes_anual ?? updates.tasa_interes ?? null,
       id_periodicidad: updates.id_periodicidad ?? null,
       plazo_cuotas: updates.plazo_cuotas ?? updates.plazo_meses ?? null,
-      fecha_inicio: updates.fecha_inicio ?? updates.fecha_desembolso ?? null,
+      fecha_inicio: fecha_inicio ?? null,
       dia_pago: updates.dia_pago ?? null,
       estado: updates.estado ?? null
     };

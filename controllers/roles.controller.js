@@ -3,6 +3,19 @@ const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
 
+const normalizePermissions = (permisos) => {
+  if (!permisos) return null;
+  if (typeof permisos === 'string') {
+    try {
+      JSON.parse(permisos);
+      return permisos;
+    } catch {
+      return JSON.stringify({});
+    }
+  }
+  return JSON.stringify(permisos);
+};
+
 /**
  * GET /roles
  */
@@ -44,7 +57,7 @@ exports.create = async (req, res) => {
     const [result] = await sequelize.query(sql.createRol, {
       replacements: {
         nombre_rol: nombre_rol ?? null,
-        permisos: permisos ? JSON.stringify(permisos) : null
+        permisos: normalizePermissions(permisos)
       },
       type: QueryTypes.INSERT,
       transaction
@@ -71,7 +84,7 @@ exports.update = async (req, res) => {
     const replacements = {
       id,
       nombre_rol: updates.nombre_rol ?? null,
-      permisos: updates.permisos ? JSON.stringify(updates.permisos) : null
+      permisos: normalizePermissions(updates.permisos)
     };
     await sequelize.query(sql.updateRol, {
       replacements,
