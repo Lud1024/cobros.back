@@ -12,7 +12,7 @@ if (typeof(PhusionPassenger) !== 'undefined') {
 // O usa 'passenger' como socket
 const PORT = process.env.PORT || 3300;
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en puerto ${PORT}`);
 });
 
