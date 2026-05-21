@@ -3,6 +3,7 @@ const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
 const { actualizarMoraPrestamo, actualizarMoraTodosLosPrestamos } = require('../services/loanAccounting');
+const { getScope } = require('../utils/accessControl');
 
 /**
  * GET /cuotas
@@ -10,7 +11,15 @@ const { actualizarMoraPrestamo, actualizarMoraTodosLosPrestamos } = require('../
 exports.getAll = async (req, res) => {
   try {
     await actualizarMoraTodosLosPrestamos();
-    const cuotas = await sequelize.query(sql.listCuotas, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const cuotas = scope.isAdmin
+      ? await sequelize.query(sql.listCuotas, { type: QueryTypes.SELECT })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.listCuotasScoped, {
+            replacements: { id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(cuotas);
   } catch (err) {
     console.error(err);
@@ -24,10 +33,18 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const cuotas = await sequelize.query(sql.getCuotaById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const cuotas = scope.isAdmin
+      ? await sequelize.query(sql.getCuotaById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getCuotaByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     if (!cuotas.length) return res.status(404).json({ error: 'Cuota no encontrada' });
     res.json(cuotas[0]);
   } catch (err) {
@@ -43,10 +60,18 @@ exports.getByPrestamo = async (req, res) => {
   const { id_prestamo } = req.params;
   try {
     await actualizarMoraPrestamo(id_prestamo);
-    const cuotas = await sequelize.query(sql.getCuotasByPrestamo, {
-      replacements: { id_prestamo },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const cuotas = scope.isAdmin
+      ? await sequelize.query(sql.getCuotasByPrestamo, {
+          replacements: { id_prestamo },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getCuotasByPrestamoScoped, {
+            replacements: { id_prestamo, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(cuotas);
   } catch (err) {
     console.error(err);

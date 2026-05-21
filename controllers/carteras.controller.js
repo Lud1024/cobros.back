@@ -2,13 +2,22 @@
 const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+const { getScope } = require('../utils/accessControl');
 
 /**
  * GET /carteras
  */
 exports.getAll = async (req, res) => {
   try {
-    const carteras = await sequelize.query(sql.listCarteras, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const carteras = scope.isAdmin
+      ? await sequelize.query(sql.listCarteras, { type: QueryTypes.SELECT })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.listCarterasScoped, {
+            replacements: { id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(carteras);
   } catch (err) {
     console.error(err);
@@ -22,10 +31,18 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const carteras = await sequelize.query(sql.getCarteraById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const carteras = scope.isAdmin
+      ? await sequelize.query(sql.getCarteraById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getCarteraByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     if (!carteras.length) return res.status(404).json({ error: 'Cartera no encontrada' });
     res.json(carteras[0]);
   } catch (err) {

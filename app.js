@@ -130,6 +130,7 @@ apiRouter.use("/pago-aplicaciones", require("./routes/pago_aplicaciones.routes")
 apiRouter.use("/politicas-mora", require("./routes/politicas_mora.routes"));
 apiRouter.use("/usuario-roles", require("./routes/usuario_roles.routes"));
 apiRouter.use("/rol-cartera", require("./routes/rol_cartera.routes"));
+apiRouter.use("/reportes", require("./routes/reportes.routes"));
 
 // Montar el router en la raiz y en /api para flexibilidad
 app.use("/", apiRouter);

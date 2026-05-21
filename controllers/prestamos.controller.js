@@ -5,13 +5,22 @@ const sql = require('../utils/sqlLoader')();
 const logger = require('../utils/logger');
 const { generateCuotasForPrestamo } = require('../services/loanAccounting');
 const { isValidDateOnly } = require('../utils/dateValidation');
+const { getScope } = require('../utils/accessControl');
 
 /**
  * GET /prestamos
  */
 exports.getAll = async (req, res) => {
   try {
-    const prestamos = await sequelize.query(sql.listPrestamos, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const prestamos = scope.isAdmin
+      ? await sequelize.query(sql.listPrestamos, { type: QueryTypes.SELECT })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.listPrestamosScoped, {
+            replacements: { id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(prestamos);
   } catch (err) {
     console.error(err);
@@ -25,10 +34,18 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const prestamos = await sequelize.query(sql.getPrestamoById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const prestamos = scope.isAdmin
+      ? await sequelize.query(sql.getPrestamoById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getPrestamoByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     if (!prestamos.length) return res.status(404).json({ error: 'Préstamo no encontrado' });
     res.json(prestamos[0]);
   } catch (err) {
@@ -43,10 +60,18 @@ exports.getById = async (req, res) => {
 exports.getByCliente = async (req, res) => {
   const { id_cliente } = req.params;
   try {
-    const prestamos = await sequelize.query(sql.getPrestamosByCliente, {
-      replacements: { id_cliente },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const prestamos = scope.isAdmin
+      ? await sequelize.query(sql.getPrestamosByCliente, {
+          replacements: { id_cliente },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getPrestamosByClienteScoped, {
+            replacements: { id_cliente, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(prestamos);
   } catch (err) {
     console.error(err);
@@ -70,6 +95,21 @@ exports.create = async (req, res) => {
     const plazo_cuotas = req.body.plazo_cuotas ?? req.body.plazo_meses;
     const fecha_inicio = req.body.fecha_inicio ?? req.body.fecha_desembolso;
     const dia_pago = req.body.dia_pago ?? 1; // Default a 1 si no se proporciona
+    const scope = await getScope(req.user);
+
+    if (!scope.isAdmin) {
+      const clientes = scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteByIdScoped, {
+            replacements: { id: id_cliente, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT,
+            transaction
+          })
+        : [];
+      if (!clientes.length) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'No tiene acceso al cliente seleccionado' });
+      }
+    }
 
     // Validar dia_pago (1-31)
     if (dia_pago < 1 || dia_pago > 31) {
@@ -85,6 +125,7 @@ exports.create = async (req, res) => {
     const [result] = await sequelize.query(sql.createPrestamo, {
       replacements: {
         id_cliente: id_cliente ?? null,
+        id_usuario_crea: req.user?.id ?? null,
         monto: monto ?? null,
         tasa_interes_anual: tasa_interes_anual ?? null,
         id_periodicidad: id_periodicidad ?? null,
@@ -130,6 +171,32 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      if (!scope.carteraIds.length) {
+        return res.status(403).json({ error: 'No tiene carteras asignadas' });
+      }
+
+      const allowedPrestamo = await sequelize.query(sql.getPrestamoByIdScoped, {
+        replacements: { id, id_carteras: scope.carteraIds },
+        type: QueryTypes.SELECT
+      });
+      if (!allowedPrestamo.length) {
+        return res.status(404).json({ error: 'PrÃ©stamo no encontrado' });
+      }
+
+      const nuevoCliente = updates.id_cliente;
+      if (nuevoCliente) {
+        const allowedCliente = await sequelize.query(sql.getClienteByIdScoped, {
+          replacements: { id: nuevoCliente, id_carteras: scope.carteraIds },
+          type: QueryTypes.SELECT
+        });
+        if (!allowedCliente.length) {
+          return res.status(403).json({ error: 'No tiene acceso al cliente seleccionado' });
+        }
+      }
+    }
+
     // Mapear campos del frontend a campos de la BD
     const dia_pago = updates.dia_pago;
     
@@ -159,6 +226,17 @@ exports.update = async (req, res) => {
       replacements,
       type: QueryTypes.UPDATE
     });
+
+    if (updates.estado === 'cancelado') {
+      await sequelize.query(sql.closePrestamo, {
+        replacements: {
+          id,
+          id_usuario_cierra: req.user?.id ?? null
+        },
+        type: QueryTypes.UPDATE
+      });
+    }
+
     logger.transaction('✏️ PRÉSTAMO ACTUALIZADO -', { id_prestamo: id });
     res.json({ message: 'Préstamo actualizado' });
   } catch (err) {
@@ -176,6 +254,21 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   const { id } = req.params;
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      if (!scope.carteraIds.length) {
+        return res.status(403).json({ error: 'No tiene carteras asignadas' });
+      }
+
+      const allowedPrestamo = await sequelize.query(sql.getPrestamoByIdScoped, {
+        replacements: { id, id_carteras: scope.carteraIds },
+        type: QueryTypes.SELECT
+      });
+      if (!allowedPrestamo.length) {
+        return res.status(404).json({ error: 'PrÃ©stamo no encontrado' });
+      }
+    }
+
     await sequelize.query(sql.deletePrestamo, {
       replacements: { id },
       type: QueryTypes.DELETE

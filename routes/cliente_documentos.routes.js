@@ -6,19 +6,19 @@ const { authenticateToken } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorization');
 
 // Lista todos los documentos de clientes
-router.get('/', ctrl.getAll);
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene documentos de un cliente específico
-router.get('/cliente/:id_cliente', ctrl.getByCliente);
+router.get('/cliente/:id_cliente', authenticateToken, ctrl.getByCliente);
 
 // Obtiene documentos por tipo
-router.get('/tipo/:tipo_documento', ctrl.getByTipo);
+router.get('/tipo/:tipo_documento', authenticateToken, ctrl.getByTipo);
 
 // Obtiene un documento por ID
-router.get('/:id', ctrl.getById);
+router.get('/:id', authenticateToken, ctrl.getById);
 
 // Crea un nuevo documento de cliente
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, ctrl.create);
 
 // Actualiza un documento de cliente existente
 router.patch('/:id', authenticateToken, requirePermission('gestionar_documentos'), ctrl.update);

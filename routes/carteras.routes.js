@@ -6,13 +6,13 @@ const { authenticateToken } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las carteras
-router.get('/', ctrl.getAll);
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene una cartera por ID
-router.get('/:id', ctrl.getById);
+router.get('/:id', authenticateToken, ctrl.getById);
 
 // Crea una nueva cartera
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, requirePermission('gestionar_carteras'), ctrl.create);
 
 // Actualiza una cartera existente
 router.patch('/:id', authenticateToken, requirePermission('gestionar_carteras'), ctrl.update);

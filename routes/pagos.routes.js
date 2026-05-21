@@ -6,16 +6,19 @@ const { authenticateToken } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorization');
 
 // Lista todos los pagos
-router.get('/', ctrl.getAll);
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene pagos por préstamo
-router.get('/prestamo/:id_prestamo', ctrl.getByPrestamo);
+router.get('/prestamo/:id_prestamo', authenticateToken, ctrl.getByPrestamo);
+
+// Obtiene pagos por cliente
+router.get('/cliente/:id_cliente', authenticateToken, ctrl.getByCliente);
 
 // Obtiene un pago por ID
-router.get('/:id', ctrl.getById);
+router.get('/:id', authenticateToken, ctrl.getById);
 
 // Crea un nuevo pago
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, ctrl.create);
 
 // Actualiza un pago existente
 router.patch('/:id', authenticateToken, requirePermission('editar_pagos'), ctrl.update);

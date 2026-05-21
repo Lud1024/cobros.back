@@ -6,16 +6,16 @@ const { authenticateToken } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las cuotas
-router.get('/', ctrl.getAll);
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene cuotas por préstamo
-router.get('/prestamo/:id_prestamo', ctrl.getByPrestamo);
+router.get('/prestamo/:id_prestamo', authenticateToken, ctrl.getByPrestamo);
 
 // Obtiene una cuota por ID
-router.get('/:id', ctrl.getById);
+router.get('/:id', authenticateToken, ctrl.getById);
 
 // Crea una nueva cuota
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, requirePermission('gestionar_cuotas'), ctrl.create);
 
 // Actualiza una cuota existente
 router.patch('/:id', authenticateToken, requirePermission('gestionar_cuotas'), ctrl.update);

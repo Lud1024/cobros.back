@@ -4,6 +4,8 @@ const sql = require('../utils/sqlLoader')();
 const { todayDateOnly } = require('../utils/dateValidation');
 
 const MONEY_EPSILON = 0.004;
+const DAYS_PER_FINANCIAL_MONTH = 30;
+const INSTALLMENT_APPROXIMATION_STEP = 100;
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -11,6 +13,10 @@ const toNumber = (value) => {
 };
 
 const roundMoney = (value) => Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+const roundInstallment = (value) => {
+  const approximated = Math.round(toNumber(value) / INSTALLMENT_APPROXIMATION_STEP) * INSTALLMENT_APPROXIMATION_STEP;
+  return roundMoney(approximated > 0 ? approximated : value);
+};
 
 const toDateOnly = (value) => {
   if (!value) return null;
@@ -74,22 +80,32 @@ const buildAmortizationSchedule = ({ monto, tasaInteresAnual, plazoCuotas, fecha
   const principal = roundMoney(monto);
   const cuotas = Number(plazoCuotas);
   const diasPeriodo = Math.max(Number(periodicidad.dias) || 30, 1);
-  const tasaPeriodo = (toNumber(tasaInteresAnual) / 100) / (365 / diasPeriodo);
+  const tasaPeriodo = (toNumber(tasaInteresAnual) / 100) * (diasPeriodo / DAYS_PER_FINANCIAL_MONTH);
 
   if (!principal || !cuotas || cuotas <= 0) {
     throw new Error('Datos insuficientes para generar cuotas');
   }
 
-  const cuotaFija = tasaPeriodo > 0
+  const cuotaExacta = tasaPeriodo > 0
     ? roundMoney(principal * (tasaPeriodo / (1 - Math.pow(1 + tasaPeriodo, -cuotas))))
     : roundMoney(principal / cuotas);
+  const cuotaFija = roundInstallment(cuotaExacta);
 
   let saldo = principal;
 
   return Array.from({ length: cuotas }, (_, index) => {
     const numeroCuota = index + 1;
     const interes = tasaPeriodo > 0 ? roundMoney(saldo * tasaPeriodo) : 0;
-    const capital = numeroCuota === cuotas ? saldo : roundMoney(cuotaFija - interes);
+    let capital = numeroCuota === cuotas ? saldo : roundMoney(cuotaFija - interes);
+    if (numeroCuota !== cuotas && capital <= MONEY_EPSILON) {
+      capital = roundMoney(cuotaExacta - interes);
+    }
+    if (capital <= MONEY_EPSILON) {
+      const error = new Error('La tasa de interes mensual es demasiado alta para el plazo indicado');
+      error.statusCode = 400;
+      throw error;
+    }
+    capital = numeroCuota === cuotas ? saldo : Math.min(capital, saldo);
     saldo = roundMoney(saldo - capital);
 
     return {
@@ -309,7 +325,7 @@ const createPagoAplicacion = async ({ idPago, idCuota, aplicadoA, montoAplicado 
   });
 };
 
-const applyPagoToCuotas = async ({ idPago, idPrestamo, montoRecibido, fechaPago }, transaction) => {
+const applyPagoToCuotas = async ({ idPago, idPrestamo, montoRecibido, fechaPago, idUsuario = null }, transaction) => {
   await actualizarMoraPrestamo(idPrestamo, fechaPago, transaction);
 
   let restante = roundMoney(montoRecibido);
@@ -420,17 +436,10 @@ const applyPagoToCuotas = async ({ idPago, idPrestamo, montoRecibido, fechaPago 
   );
 
   if (Number(pendientes[0]?.pendientes || 0) === 0) {
-    await sequelize.query(sql.updatePrestamo, {
+    await sequelize.query(sql.closePrestamo, {
       replacements: {
         id: idPrestamo,
-        id_cliente: null,
-        monto: null,
-        tasa_interes_anual: null,
-        id_periodicidad: null,
-        plazo_cuotas: null,
-        fecha_inicio: null,
-        dia_pago: null,
-        estado: 'cancelado'
+        id_usuario_cierra: idUsuario
       },
       type: QueryTypes.UPDATE,
       transaction

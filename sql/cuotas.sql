@@ -16,7 +16,30 @@ LEFT JOIN (
   SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
   FROM pago_aplicaciones
   GROUP BY id_cuota
-) pa ON pa.id_cuota = c.id_cuota;
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.estado <> 'cancelada';
+
+-- name: listCuotasScoped
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+INNER JOIN prestamos p ON p.id_prestamo = c.id_prestamo
+INNER JOIN clientes cl ON cl.id_cliente = p.id_cliente
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.estado <> 'cancelada'
+  AND cl.id_cartera IN (:id_carteras);
 
 -- name: getCuotaById
 SELECT
@@ -38,6 +61,28 @@ LEFT JOIN (
 WHERE c.id_cuota = :id
 ;
 
+-- name: getCuotaByIdScoped
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+INNER JOIN prestamos p ON p.id_prestamo = c.id_prestamo
+INNER JOIN clientes cl ON cl.id_cliente = p.id_cliente
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.id_cuota = :id
+  AND cl.id_cartera IN (:id_carteras);
+
 -- name: getCuotasByPrestamo
 SELECT
   c.*,
@@ -56,6 +101,31 @@ LEFT JOIN (
   GROUP BY id_cuota
 ) pa ON pa.id_cuota = c.id_cuota
 WHERE c.id_prestamo = :id_prestamo
+  AND c.estado <> 'cancelada'
+ORDER BY c.numero_cuota;
+
+-- name: getCuotasByPrestamoScoped
+SELECT
+  c.*,
+  ROUND(c.capital_programado + c.interes_programado + c.mora_acumulada, 2) AS monto_cuota,
+  ROUND(c.capital_pagado + c.interes_pagado + COALESCE(pa.mora_pagada, 0), 2) AS monto_pagado,
+  ROUND(COALESCE(pa.mora_pagada, 0), 2) AS mora_pagada,
+  ROUND(
+    c.capital_programado + c.interes_programado + c.mora_acumulada -
+    c.capital_pagado - c.interes_pagado - COALESCE(pa.mora_pagada, 0),
+    2
+  ) AS saldo_pendiente
+FROM cuotas c
+INNER JOIN prestamos p ON p.id_prestamo = c.id_prestamo
+INNER JOIN clientes cl ON cl.id_cliente = p.id_cliente
+LEFT JOIN (
+  SELECT id_cuota, SUM(CASE WHEN aplicado_a = 'MORA' THEN monto_aplicado ELSE 0 END) AS mora_pagada
+  FROM pago_aplicaciones
+  GROUP BY id_cuota
+) pa ON pa.id_cuota = c.id_cuota
+WHERE c.id_prestamo = :id_prestamo
+  AND c.estado <> 'cancelada'
+  AND cl.id_cartera IN (:id_carteras)
 ORDER BY c.numero_cuota;
 
 -- name: getCuotaByPrestamoNumero

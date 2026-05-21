@@ -6,22 +6,22 @@ const { authenticateToken } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorization');
 
 // Lista todas las visitas de cobro
-router.get('/', ctrl.getAll);
+router.get('/', authenticateToken, ctrl.getAll);
 
 // Obtiene visitas de un cliente específico
-router.get('/cliente/:id_cliente', ctrl.getByCliente);
+router.get('/cliente/:id_cliente', authenticateToken, ctrl.getByCliente);
 
 // Obtiene visitas de un préstamo específico
-router.get('/prestamo/:id_prestamo', ctrl.getByPrestamo);
+router.get('/prestamo/:id_prestamo', authenticateToken, ctrl.getByPrestamo);
 
 // Obtiene visitas por resultado
-router.get('/resultado/:resultado', ctrl.getByResultado);
+router.get('/resultado/:resultado', authenticateToken, ctrl.getByResultado);
 
 // Obtiene una visita por ID
-router.get('/:id', ctrl.getById);
+router.get('/:id', authenticateToken, ctrl.getById);
 
 // Crea una nueva visita de cobro
-router.post('/', ctrl.create);
+router.post('/', authenticateToken, ctrl.create);
 
 // Actualiza una visita de cobro existente
 router.patch('/:id', authenticateToken, requirePermission('crear_visitas'), ctrl.update);

@@ -2,13 +2,34 @@
 const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
+const { getScope } = require('../utils/accessControl');
+
+const tiposDocumentoValidos = [
+  'DPI',
+  'Contrato de Prestamo',
+  'Recibo de Pago',
+  'Comprobante de Ingresos',
+  'Comprobante de Domicilio',
+  'Garantia',
+  'PDF',
+  'EXCEL',
+  'OTRO'
+];
 
 /**
  * GET /cliente-documentos
  */
 exports.getAll = async (req, res) => {
   try {
-    const documentos = await sequelize.query(sql.listClienteDocumentos, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const documentos = scope.isAdmin
+      ? await sequelize.query(sql.listClienteDocumentos, { type: QueryTypes.SELECT })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.listClienteDocumentosScoped, {
+            replacements: { id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(documentos);
   } catch (err) {
     console.error(err);
@@ -22,10 +43,18 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const documentos = await sequelize.query(sql.getClienteDocumentoById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const documentos = scope.isAdmin
+      ? await sequelize.query(sql.getClienteDocumentoById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteDocumentoByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     if (!documentos.length) return res.status(404).json({ error: 'Documento no encontrado' });
     res.json(documentos[0]);
   } catch (err) {
@@ -40,10 +69,18 @@ exports.getById = async (req, res) => {
 exports.getByCliente = async (req, res) => {
   const { id_cliente } = req.params;
   try {
-    const documentos = await sequelize.query(sql.getDocumentosByCliente, {
-      replacements: { id_cliente },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const documentos = scope.isAdmin
+      ? await sequelize.query(sql.getDocumentosByCliente, {
+          replacements: { id_cliente },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getDocumentosByClienteScoped, {
+            replacements: { id_cliente, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(documentos);
   } catch (err) {
     console.error(err);
@@ -57,10 +94,18 @@ exports.getByCliente = async (req, res) => {
 exports.getByTipo = async (req, res) => {
   const { tipo_documento } = req.params;
   try {
-    const documentos = await sequelize.query(sql.getDocumentosByTipo, {
-      replacements: { tipo_documento },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const documentos = scope.isAdmin
+      ? await sequelize.query(sql.getDocumentosByTipo, {
+          replacements: { tipo_documento },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getDocumentosByTipoScoped, {
+            replacements: { tipo_documento, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(documentos);
   } catch (err) {
     console.error(err);
@@ -75,12 +120,26 @@ exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { id_cliente, tipo_documento, nombre_archivo, ruta_storage } = req.body;
+    const scope = await getScope(req.user);
+
+    if (!scope.isAdmin) {
+      const allowedCliente = scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteByIdScoped, {
+            replacements: { id: id_cliente, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT,
+            transaction
+          })
+        : [];
+      if (!allowedCliente.length) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'No tiene acceso al cliente seleccionado' });
+      }
+    }
 
     // Validar tipo_documento
-    const tiposValidos = ['PDF', 'EXCEL', 'OTRO'];
-    if (!tiposValidos.includes(tipo_documento)) {
+    if (!tiposDocumentoValidos.includes(tipo_documento)) {
       await transaction.rollback();
-      return res.status(400).json({ error: 'tipo_documento debe ser PDF, EXCEL o OTRO' });
+      return res.status(400).json({ error: 'tipo_documento no es valido' });
     }
 
     // Validar nombre_archivo
@@ -125,11 +184,23 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      const allowedDocumento = scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteDocumentoByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
+      if (!allowedDocumento.length) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+    }
+
     // Validar tipo_documento si se actualiza
     if (updates.tipo_documento) {
-      const tiposValidos = ['PDF', 'EXCEL', 'OTRO'];
-      if (!tiposValidos.includes(updates.tipo_documento)) {
-        return res.status(400).json({ error: 'tipo_documento debe ser PDF, EXCEL o OTRO' });
+      if (!tiposDocumentoValidos.includes(updates.tipo_documento)) {
+        return res.status(400).json({ error: 'tipo_documento no es valido' });
       }
     }
 
@@ -177,6 +248,19 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   const { id } = req.params;
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      const allowedDocumento = scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteDocumentoByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
+      if (!allowedDocumento.length) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+    }
+
     await sequelize.query(sql.deleteClienteDocumento, {
       replacements: { id },
       type: QueryTypes.DELETE

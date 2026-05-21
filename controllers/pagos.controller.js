@@ -5,13 +5,20 @@ const sql = require('../utils/sqlLoader')();
 const logger = require('../utils/logger');
 const { applyPagoToCuotas, reversePagoApplications } = require('../services/loanAccounting');
 const { isValidDateOnly, parseDateOnlyLocal, todayDateOnly } = require('../utils/dateValidation');
+const { getScope } = require('../utils/accessControl');
 
 /**
  * GET /pagos
  */
 exports.getAll = async (req, res) => {
   try {
-    const pagos = await sequelize.query(sql.listPagos, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const pagos = scope.isAdmin
+      ? await sequelize.query(sql.listPagos, { type: QueryTypes.SELECT })
+      : await sequelize.query(sql.listPagosScoped, {
+          replacements: { id_usuario_registro: scope.userId },
+          type: QueryTypes.SELECT
+        });
     res.json(pagos);
   } catch (err) {
     console.error(err);
@@ -25,10 +32,16 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const pagos = await sequelize.query(sql.getPagoById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const pagos = scope.isAdmin
+      ? await sequelize.query(sql.getPagoById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : await sequelize.query(sql.getPagoByIdScoped, {
+          replacements: { id, id_usuario_registro: scope.userId },
+          type: QueryTypes.SELECT
+        });
     if (!pagos.length) return res.status(404).json({ error: 'Pago no encontrado' });
     res.json(pagos[0]);
   } catch (err) {
@@ -43,14 +56,49 @@ exports.getById = async (req, res) => {
 exports.getByPrestamo = async (req, res) => {
   const { id_prestamo } = req.params;
   try {
-    const pagos = await sequelize.query(sql.getPagosByPrestamo, {
-      replacements: { id_prestamo },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const pagos = scope.isAdmin
+      ? await sequelize.query(sql.getPagosByPrestamo, {
+          replacements: { id_prestamo },
+          type: QueryTypes.SELECT
+        })
+      : await sequelize.query(sql.getPagosByPrestamoScoped, {
+          replacements: { id_prestamo, id_usuario_registro: scope.userId },
+          type: QueryTypes.SELECT
+        });
     res.json(pagos);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener pagos del prestamo' });
+  }
+};
+
+/**
+ * GET /pagos/cliente/:id_cliente
+ */
+exports.getByCliente = async (req, res) => {
+  const { id_cliente } = req.params;
+  try {
+    const scope = await getScope(req.user);
+    const pagos = scope.isAdmin
+      ? await sequelize.query(sql.getPagosByCliente, {
+          replacements: { id_cliente },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getPagosByClienteScoped, {
+            replacements: {
+              id_cliente,
+              id_carteras: scope.carteraIds,
+              id_usuario_registro: scope.userId
+            },
+            type: QueryTypes.SELECT
+          })
+        : [];
+    res.json(pagos);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener pagos del cliente' });
   }
 };
 
@@ -64,6 +112,7 @@ exports.create = async (req, res) => {
     const { id_prestamo, fecha_pago, metodo_pago, observaciones } = req.body;
     const monto_recibido = req.body.monto_recibido ?? req.body.monto;
     const origen = req.user ? `${req.user.nombre} ${req.user.apellido}` : 'Sistema';
+    const scope = await getScope(req.user);
 
     if (!monto_recibido || monto_recibido <= 0) {
       await transaction.rollback();
@@ -85,9 +134,24 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'fecha_pago no puede ser mayor a 7 dias en el futuro' });
     }
 
+    if (!scope.isAdmin) {
+      const allowedPrestamo = scope.carteraIds.length
+        ? await sequelize.query(sql.getPrestamoByIdScoped, {
+            replacements: { id: id_prestamo, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT,
+            transaction
+          })
+        : [];
+      if (!allowedPrestamo.length) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'No tiene acceso al prestamo seleccionado' });
+      }
+    }
+
     const [result] = await sequelize.query(sql.createPago, {
       replacements: {
         id_prestamo: id_prestamo ?? null,
+        id_usuario_registro: req.user?.id ?? null,
         fecha_pago: fecha_pago ?? null,
         monto_recibido: monto_recibido ?? null,
         metodo_pago: metodo_pago || 'Efectivo',
@@ -103,7 +167,8 @@ exports.create = async (req, res) => {
       idPago,
       idPrestamo: id_prestamo,
       montoRecibido: monto_recibido,
-      fechaPago: fecha_pago
+      fechaPago: fecha_pago,
+      idUsuario: req.user?.id ?? null
     }, transaction);
 
     await transaction.commit();
@@ -138,6 +203,7 @@ exports.update = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+    const scope = await getScope(req.user);
     if (monto_recibido && monto_recibido <= 0) {
       await transaction.rollback();
       return res.status(400).json({ error: 'monto_recibido debe ser mayor a 0' });
@@ -160,11 +226,17 @@ exports.update = async (req, res) => {
       }
     }
 
-    const pagos = await sequelize.query(sql.getPagoById, {
-      replacements: { id },
-      type: QueryTypes.SELECT,
-      transaction
-    });
+    const pagos = scope.isAdmin
+      ? await sequelize.query(sql.getPagoById, {
+          replacements: { id },
+          type: QueryTypes.SELECT,
+          transaction
+        })
+      : await sequelize.query(sql.getPagoByIdScoped, {
+          replacements: { id, id_usuario_registro: scope.userId },
+          type: QueryTypes.SELECT,
+          transaction
+        });
 
     if (!pagos.length) {
       await transaction.rollback();
@@ -172,6 +244,21 @@ exports.update = async (req, res) => {
     }
 
     const pagoActual = pagos[0];
+    const targetPrestamo = updates.id_prestamo ?? pagoActual.id_prestamo;
+    if (!scope.isAdmin) {
+      const allowedPrestamo = scope.carteraIds.length
+        ? await sequelize.query(sql.getPrestamoByIdScoped, {
+            replacements: { id: targetPrestamo, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT,
+            transaction
+          })
+        : [];
+      if (!allowedPrestamo.length) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'No tiene acceso al prestamo seleccionado' });
+      }
+    }
+
     await reversePagoApplications(id, updates.fecha_pago ?? pagoActual.fecha_pago, transaction);
 
     const replacements = {
@@ -192,9 +279,10 @@ exports.update = async (req, res) => {
 
     const aplicacion = await applyPagoToCuotas({
       idPago: id,
-      idPrestamo: updates.id_prestamo ?? pagoActual.id_prestamo,
+      idPrestamo: targetPrestamo,
       montoRecibido: monto_recibido ?? pagoActual.monto_recibido,
-      fechaPago: updates.fecha_pago ?? pagoActual.fecha_pago
+      fechaPago: updates.fecha_pago ?? pagoActual.fecha_pago,
+      idUsuario: pagoActual.id_usuario_registro ?? req.user?.id ?? null
     }, transaction);
 
     await transaction.commit();
@@ -218,6 +306,19 @@ exports.remove = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      const pagos = await sequelize.query(sql.getPagoByIdScoped, {
+        replacements: { id, id_usuario_registro: scope.userId },
+        type: QueryTypes.SELECT,
+        transaction
+      });
+      if (!pagos.length) {
+        await transaction.rollback();
+        return res.status(404).json({ error: 'Pago no encontrado' });
+      }
+    }
+
     await reversePagoApplications(id, todayDateOnly(), transaction);
     await sequelize.query(sql.deletePago, {
       replacements: { id },

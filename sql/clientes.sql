@@ -4,10 +4,21 @@
 SELECT *
 FROM clientes;
 
+-- name: listClientesScoped
+SELECT *
+FROM clientes
+WHERE id_cartera IN (:id_carteras);
+
 -- name: getClienteById
 SELECT *
 FROM clientes
 WHERE id_cliente = :id;
+
+-- name: getClienteByIdScoped
+SELECT *
+FROM clientes
+WHERE id_cliente = :id
+  AND id_cartera IN (:id_carteras);
 
 -- name: getClienteByDpi
 SELECT *
@@ -22,6 +33,7 @@ WHERE nit = :nit;
 -- name: createCliente
 INSERT INTO clientes (
   id_cartera,
+  id_usuario_crea,
   nombre,
   apellido,
   dpi,
@@ -33,6 +45,7 @@ INSERT INTO clientes (
 )
 VALUES (
   :id_cartera,
+  :id_usuario_crea,
   :nombre,
   :apellido,
   :dpi,

@@ -4,10 +4,21 @@
 SELECT *
 FROM carteras;
 
+-- name: listCarterasScoped
+SELECT *
+FROM carteras
+WHERE id_cartera IN (:id_carteras);
+
 -- name: getCarteraById
 SELECT *
 FROM carteras
 WHERE id_cartera = :id;
+
+-- name: getCarteraByIdScoped
+SELECT *
+FROM carteras
+WHERE id_cartera = :id
+  AND id_cartera IN (:id_carteras);
 
 -- name: getCarteraByNombre
 SELECT *

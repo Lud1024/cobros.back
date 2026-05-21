@@ -3,6 +3,7 @@ const { QueryTypes, Transaction } = require('sequelize');
 const sequelize = require('../config/db');
 const sql = require('../utils/sqlLoader')();
 const logger = require('../utils/logger');
+const { getScope } = require('../utils/accessControl');
 
 const trimOrNull = (value) => {
   if (value === undefined || value === null) return null;
@@ -41,7 +42,15 @@ const validateClienteInput = (cliente) => {
  */
 exports.getAll = async (req, res) => {
   try {
-    const clientes = await sequelize.query(sql.listClientes, { type: QueryTypes.SELECT });
+    const scope = await getScope(req.user);
+    const clientes = scope.isAdmin
+      ? await sequelize.query(sql.listClientes, { type: QueryTypes.SELECT })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.listClientesScoped, {
+            replacements: { id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     res.json(clientes);
   } catch (err) {
     console.error(err);
@@ -55,10 +64,18 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
   try {
-    const clientes = await sequelize.query(sql.getClienteById, {
-      replacements: { id },
-      type: QueryTypes.SELECT
-    });
+    const scope = await getScope(req.user);
+    const clientes = scope.isAdmin
+      ? await sequelize.query(sql.getClienteById, {
+          replacements: { id },
+          type: QueryTypes.SELECT
+        })
+      : scope.carteraIds.length
+        ? await sequelize.query(sql.getClienteByIdScoped, {
+            replacements: { id, id_carteras: scope.carteraIds },
+            type: QueryTypes.SELECT
+          })
+        : [];
     if (!clientes.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(clientes[0]);
   } catch (err) {
@@ -74,6 +91,7 @@ exports.create = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const cliente = normalizeClienteInput(req.body);
+    const scope = await getScope(req.user);
     const validationError = validateClienteInput(cliente);
     if (validationError) {
       await transaction.rollback();
@@ -81,6 +99,11 @@ exports.create = async (req, res) => {
     }
 
     const { id_cartera, nombre, apellido, dpi, nit, direccion, telefono, correo } = cliente;
+
+    if (!scope.isAdmin && !scope.carteraIds.includes(Number(id_cartera))) {
+      await transaction.rollback();
+      return res.status(403).json({ error: 'No tiene acceso a esta cartera' });
+    }
 
     // Verificar unicidad de DPI si se proporciona
     if (dpi) {
@@ -111,6 +134,7 @@ exports.create = async (req, res) => {
     const [result] = await sequelize.query(sql.createCliente, {
       replacements: {
         id_cartera,
+        id_usuario_crea: req.user?.id ?? null,
         nombre,
         apellido,
         dpi,
@@ -142,6 +166,24 @@ exports.update = async (req, res) => {
   const { id } = req.params;
   const updates = normalizeClienteInput(req.body);
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      if (!scope.carteraIds.length) {
+        return res.status(403).json({ error: 'No tiene carteras asignadas' });
+      }
+
+      const allowedCliente = await sequelize.query(sql.getClienteByIdScoped, {
+        replacements: { id, id_carteras: scope.carteraIds },
+        type: QueryTypes.SELECT
+      });
+      if (!allowedCliente.length) {
+        return res.status(404).json({ error: 'Cliente no encontrado' });
+      }
+      if (updates.id_cartera && !scope.carteraIds.includes(Number(updates.id_cartera))) {
+        return res.status(403).json({ error: 'No tiene acceso a esta cartera' });
+      }
+    }
+
     const validationError = validateClienteInput(updates);
     if (validationError) {
       return res.status(400).json({ error: validationError });
@@ -204,6 +246,21 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   const { id } = req.params;
   try {
+    const scope = await getScope(req.user);
+    if (!scope.isAdmin) {
+      if (!scope.carteraIds.length) {
+        return res.status(403).json({ error: 'No tiene carteras asignadas' });
+      }
+
+      const allowedCliente = await sequelize.query(sql.getClienteByIdScoped, {
+        replacements: { id, id_carteras: scope.carteraIds },
+        type: QueryTypes.SELECT
+      });
+      if (!allowedCliente.length) {
+        return res.status(404).json({ error: 'Cliente no encontrado' });
+      }
+    }
+
     await sequelize.query(sql.deleteCliente, {
       replacements: { id },
       type: QueryTypes.DELETE

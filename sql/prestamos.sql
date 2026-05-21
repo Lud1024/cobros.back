@@ -4,6 +4,7 @@
 SELECT 
   id_prestamo,
   id_cliente,
+  id_usuario_crea,
   monto,
   monto AS monto_prestamo,
   tasa_interes_anual,
@@ -15,13 +16,39 @@ SELECT
   fecha_inicio AS fecha_desembolso,
   dia_pago,
   estado,
+  id_usuario_cierra,
+  fecha_cierre,
   fecha_crea
 FROM prestamos;
+
+-- name: listPrestamosScoped
+SELECT 
+  p.id_prestamo,
+  p.id_cliente,
+  p.id_usuario_crea,
+  p.monto,
+  p.monto AS monto_prestamo,
+  p.tasa_interes_anual,
+  p.tasa_interes_anual AS tasa_interes,
+  p.id_periodicidad,
+  p.plazo_cuotas,
+  p.plazo_cuotas AS plazo_meses,
+  p.fecha_inicio,
+  p.fecha_inicio AS fecha_desembolso,
+  p.dia_pago,
+  p.estado,
+  p.id_usuario_cierra,
+  p.fecha_cierre,
+  p.fecha_crea
+FROM prestamos p
+INNER JOIN clientes c ON c.id_cliente = p.id_cliente
+WHERE c.id_cartera IN (:id_carteras);
 
 -- name: getPrestamoById
 SELECT 
   id_prestamo,
   id_cliente,
+  id_usuario_crea,
   monto,
   monto AS monto_prestamo,
   tasa_interes_anual,
@@ -33,14 +60,41 @@ SELECT
   fecha_inicio AS fecha_desembolso,
   dia_pago,
   estado,
+  id_usuario_cierra,
+  fecha_cierre,
   fecha_crea
 FROM prestamos
 WHERE id_prestamo = :id;
+
+-- name: getPrestamoByIdScoped
+SELECT 
+  p.id_prestamo,
+  p.id_cliente,
+  p.id_usuario_crea,
+  p.monto,
+  p.monto AS monto_prestamo,
+  p.tasa_interes_anual,
+  p.tasa_interes_anual AS tasa_interes,
+  p.id_periodicidad,
+  p.plazo_cuotas,
+  p.plazo_cuotas AS plazo_meses,
+  p.fecha_inicio,
+  p.fecha_inicio AS fecha_desembolso,
+  p.dia_pago,
+  p.estado,
+  p.id_usuario_cierra,
+  p.fecha_cierre,
+  p.fecha_crea
+FROM prestamos p
+INNER JOIN clientes c ON c.id_cliente = p.id_cliente
+WHERE p.id_prestamo = :id
+  AND c.id_cartera IN (:id_carteras);
 
 -- name: getPrestamosByCliente
 SELECT 
   id_prestamo,
   id_cliente,
+  id_usuario_crea,
   monto,
   monto AS monto_prestamo,
   tasa_interes_anual,
@@ -52,13 +106,40 @@ SELECT
   fecha_inicio AS fecha_desembolso,
   dia_pago,
   estado,
+  id_usuario_cierra,
+  fecha_cierre,
   fecha_crea
 FROM prestamos
 WHERE id_cliente = :id_cliente;
 
+-- name: getPrestamosByClienteScoped
+SELECT 
+  p.id_prestamo,
+  p.id_cliente,
+  p.id_usuario_crea,
+  p.monto,
+  p.monto AS monto_prestamo,
+  p.tasa_interes_anual,
+  p.tasa_interes_anual AS tasa_interes,
+  p.id_periodicidad,
+  p.plazo_cuotas,
+  p.plazo_cuotas AS plazo_meses,
+  p.fecha_inicio,
+  p.fecha_inicio AS fecha_desembolso,
+  p.dia_pago,
+  p.estado,
+  p.id_usuario_cierra,
+  p.fecha_cierre,
+  p.fecha_crea
+FROM prestamos p
+INNER JOIN clientes c ON c.id_cliente = p.id_cliente
+WHERE p.id_cliente = :id_cliente
+  AND c.id_cartera IN (:id_carteras);
+
 -- name: createPrestamo
 INSERT INTO prestamos (
   id_cliente,
+  id_usuario_crea,
   monto,
   tasa_interes_anual,
   id_periodicidad,
@@ -69,6 +150,7 @@ INSERT INTO prestamos (
 )
 VALUES (
   :id_cliente,
+  :id_usuario_crea,
   :monto,
   :tasa_interes_anual,
   :id_periodicidad,
@@ -94,4 +176,12 @@ WHERE id_prestamo = :id;
 -- name: deletePrestamo
 DELETE
 FROM prestamos
+WHERE id_prestamo = :id;
+
+-- name: closePrestamo
+UPDATE prestamos
+SET
+  estado = 'cancelado',
+  id_usuario_cierra = COALESCE(:id_usuario_cierra, id_usuario_cierra),
+  fecha_cierre = COALESCE(fecha_cierre, NOW())
 WHERE id_prestamo = :id;
